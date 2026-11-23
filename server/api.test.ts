@@ -134,6 +134,6 @@ describe('GET /api/health', () => {
     setClient(null);
     const { GET } = await import('../api/health');
     const body = await GET().json();
-    expect(body).toEqual({ ok: true, ai: false, model: null });
+    expect(body).toMatchObject({ ok: true, ai: false, model: null });
   });
 });

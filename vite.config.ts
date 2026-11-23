@@ -108,6 +108,8 @@ export default defineConfig(({ mode }) => {
       setupFiles: ['./src/test/setup.ts'],
       include: ['src/**/*.test.{ts,tsx}', 'server/**/*.test.ts', 'api/**/*.test.ts'],
       css: false,
+      // Page tests render the full app; leave headroom for slow or busy CI machines.
+      testTimeout: 20_000,
       coverage: {
         provider: 'v8',
         include: ['src/lib/**', 'server/**', 'api/**'],

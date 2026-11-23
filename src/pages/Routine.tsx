@@ -40,6 +40,7 @@ export default function Routine() {
   const plan = deployed?.plan ?? localPlan;
   const ai = deployed?.ai ?? null;
   const why = new Map(ai?.items.map((i) => [i.id, i.why]) ?? []);
+  const writer = deployed?.source === 'claude' ? 'Claude Haiku' : 'Gemini';
   const building = status === 'building';
   const free = plan.items.filter((i) => i.freeAction);
   const upgrades = plan.items.filter((i) => !i.freeAction);
@@ -64,7 +65,7 @@ export default function Routine() {
         <Card className="mt-6">
           <div className="p-5">
             <div className="mb-2 inline-flex items-center gap-1.5 text-xs font-medium text-blue">
-              <Sparkles size={13} aria-hidden="true" /> Written by Gemini from your live data
+              <Sparkles size={13} aria-hidden="true" /> Written by {writer} from your live data
             </div>
             <h2 className="text-xl font-semibold tracking-[-0.02em] text-fg">{ai.headline}</h2>
             <p className="mt-2 max-w-[75ch] text-[15px] text-muted">{ai.summary}</p>
@@ -103,7 +104,7 @@ export default function Routine() {
         </div>
         <ul className="border-t border-line">
           {free.map((item, i) => (
-            <RoutineRow key={item.id} item={item} members={household.members} why={why.get(item.id)} done={done.has(item.id)} onToggleDone={() => toggleDone(item.id)} defaultOpen={i === 0 && Boolean(ai)} />
+            <RoutineRow key={item.id} item={item} members={household.members} why={why.get(item.id)} whyBy={writer} done={done.has(item.id)} onToggleDone={() => toggleDone(item.id)} defaultOpen={i === 0 && Boolean(ai)} />
           ))}
         </ul>
         <CardFooter>
@@ -123,15 +124,15 @@ export default function Routine() {
           <CardHeader title="Upgrades worth making" description="These cost money or effort, so they are kept out of today’s totals." />
           <ul className="border-t border-line">
             {upgrades.map((item) => (
-              <RoutineRow key={item.id} item={item} members={household.members} why={why.get(item.id)} />
+              <RoutineRow key={item.id} item={item} members={household.members} why={why.get(item.id)} whyBy={writer} />
             ))}
           </ul>
         </Card>
       )}
 
       <div className="mt-6 grid gap-6 md:grid-cols-2">
-        <TipsCard title="Indoor air hacks" icon={<Wind size={15} aria-hidden="true" />} tips={ai?.indoorHacks ?? CURATED_HACKS} ai={Boolean(ai)} />
-        <TipsCard title="Sustainable swaps" icon={<Leaf size={15} aria-hidden="true" />} tips={ai?.sustainableSwaps ?? CURATED_SWAPS} ai={Boolean(ai)} />
+        <TipsCard title="Indoor air hacks" icon={<Wind size={15} aria-hidden="true" />} tips={ai?.indoorHacks ?? CURATED_HACKS} ai={ai ? writer : null} />
+        <TipsCard title="Sustainable swaps" icon={<Leaf size={15} aria-hidden="true" />} tips={ai?.sustainableSwaps ?? CURATED_SWAPS} ai={ai ? writer : null} />
       </div>
 
       {history.length > 0 && (
@@ -274,12 +275,12 @@ function LogIcon({ kind }: { kind: LogLine['kind'] }) {
   return <span aria-hidden="true" className="mt-[11px] ml-[5px] size-1 rounded-full bg-subtle" />;
 }
 
-function TipsCard({ title, icon, tips, ai }: { title: string; icon: React.ReactNode; tips: AiTip[]; ai: boolean }) {
+function TipsCard({ title, icon, tips, ai }: { title: string; icon: React.ReactNode; tips: AiTip[]; ai: string | null }) {
   return (
     <Card>
       <CardHeader
         title={<span className="inline-flex items-center gap-2">{icon} {title}</span>}
-        action={<Badge tone={ai ? 'blue' : 'neutral'}>{ai ? 'Gemini' : 'Curated'}</Badge>}
+        action={<Badge tone={ai ? 'blue' : 'neutral'}>{ai ?? 'Curated'}</Badge>}
       />
       <ul className="space-y-3 px-5 pb-5">
         {tips.map((t) => (

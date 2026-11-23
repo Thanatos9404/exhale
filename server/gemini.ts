@@ -2,11 +2,12 @@ import { GoogleGenAI, ThinkingLevel, type Content, type GenerateContentConfig } 
 import type { ZodType } from 'zod';
 
 /**
- * Thin wrapper over the Gemini API (Google AI Studio key).
- * - The key is read from the server environment only; it is never sent to the browser.
- * - Models are tried in order. An overloaded or retired model is skipped for a few minutes
- *   (circuit breaker) so one slow model cannot stall every request.
- * - Every call has a per-model timeout and an overall deadline that fits a serverless function.
+ * Thin wrapper over the Gemini API (Google AI Studio keys).
+ * - Keys are read from the server environment only; they are never sent to the browser.
+ * - Several keys can be configured (GEMINI_API_KEYS, comma separated). Every key × model pair is
+ *   a candidate, so one exhausted key or overloaded model never takes the feature down.
+ * - A pair that fails is skipped for a few minutes (circuit breaker); quota errors for longer.
+ * - Every call has a per-attempt timeout and an overall deadline that fits a serverless function.
  * - Every structured response is validated with zod before the app trusts it.
  */
 
@@ -14,8 +15,9 @@ export const DEFAULT_MODELS = ['gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gem
 const PER_MODEL_TIMEOUT_MS = 12_000;
 const FIRST_TOKEN_TIMEOUT_MS = 8_000;
 const HEDGE_AFTER_MS = 7_000;
-const OVERALL_DEADLINE_MS = 50_000;
+const OVERALL_DEADLINE_MS = 45_000;
 const COOLDOWN_MS = 3 * 60_000;
+const QUOTA_COOLDOWN_MS = 10 * 60_000;
 /** The engine already did the reasoning; the model only explains, so light thinking halves latency. */
 const THINKING = { thinkingLevel: ThinkingLevel.LOW };
 
@@ -27,36 +29,74 @@ export interface GenAiLike {
   };
 }
 
-let cached: GenAiLike | null | undefined;
+interface Slot {
+  /** Stable, secret-free label for logs and breaker state, e.g. "k1". */
+  key: string;
+  client: GenAiLike;
+}
+
+export interface Candidate extends Slot {
+  model: string;
+}
+
+let cached: Slot[] | undefined;
 const coolingUntil = new Map<string, number>();
+const quotaUntil = new Map<string, number>();
+const slotId = (c: Pick<Candidate, 'key' | 'model'>) => `${c.key}/${c.model}`;
+
+/** Unique keys from GEMINI_API_KEYS (comma separated) and GEMINI_API_KEY, in that order. */
+export function configuredKeys(env: NodeJS.ProcessEnv = process.env): string[] {
+  const list = [...(env.GEMINI_API_KEYS ?? '').split(','), env.GEMINI_API_KEY ?? ''].map((k) => k.trim()).filter(Boolean);
+  return [...new Set(list)];
+}
+
+function clients(): Slot[] {
+  if (cached !== undefined) return cached;
+  // v1beta carries structured output, search grounding and the -latest model aliases.
+  cached = configuredKeys().map((apiKey, i) => ({ key: `k${i + 1}`, client: new GoogleGenAI({ apiKey, apiVersion: 'v1beta' }) }));
+  return cached;
+}
 
 export function getClient(): GenAiLike | null {
-  if (cached !== undefined) return cached;
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
-  // v1beta carries structured output, search grounding and the -latest model aliases.
-  cached = apiKey ? new GoogleGenAI({ apiKey, apiVersion: 'v1beta' }) : null;
-  return cached;
+  return clients()[0]?.client ?? null;
+}
+
+export function keyCount(): number {
+  return clients().length;
 }
 
 /** Test hook. */
 export function setClient(client: GenAiLike | null | undefined): void {
-  cached = client;
+  cached = client === undefined ? undefined : client ? [{ key: 'k1', client }] : [];
   coolingUntil.clear();
+  quotaUntil.clear();
 }
 
-export function modelChain(now = Date.now()): string[] {
+export function modelChain(): string[] {
   const preferred = process.env.GEMINI_MODEL?.trim();
-  const all = [...new Set([...(preferred ? [preferred] : []), ...DEFAULT_MODELS])];
-  const ready = all.filter((m) => (coolingUntil.get(m) ?? 0) <= now);
+  return [...new Set([...(preferred ? [preferred] : []), ...DEFAULT_MODELS])];
+}
+
+/** Model-major order (best model on every key first), skipping pairs that are cooling down. */
+export function candidates(slots: readonly Slot[], now = Date.now()): Candidate[] {
+  const all = modelChain().flatMap((model) => slots.map((s) => ({ ...s, model })));
+  const ready = all.filter((c) => (coolingUntil.get(slotId(c)) ?? 0) <= now);
   // If everything is cooling down, try them all anyway rather than fail outright.
   return ready.length > 0 ? ready : all;
 }
 
-function coolDown(model: string) {
-  coolingUntil.set(model, Date.now() + COOLDOWN_MS);
+function coolDown(c: Candidate, err?: unknown) {
+  const quota = /429|quota|exhausted/i.test(err instanceof Error ? err.message : String(err ?? ''));
+  if (quota) quotaUntil.set(slotId(c), Date.now() + QUOTA_COOLDOWN_MS);
+  coolingUntil.set(slotId(c), Date.now() + (quota ? QUOTA_COOLDOWN_MS : COOLDOWN_MS));
 }
 
-/** Errors worth retrying on the next model: unknown model, quota, overload, timeouts. */
+/** True while a key × model pair is known to be out of quota; skipping it saves requests. */
+export function outOfQuota(c: Pick<Candidate, 'key' | 'model'>, now = Date.now()): boolean {
+  return (quotaUntil.get(slotId(c)) ?? 0) > now;
+}
+
+/** Errors worth retrying elsewhere: unknown model, quota, overload, timeouts. */
 export function isRetryable(err: unknown): boolean {
   const msg = err instanceof Error ? `${err.name} ${err.message}` : String(err);
   return /404|not found|thinking|no longer available|429|quota|rate|503|overload|high demand|unavailable|500|internal|deadline|timeout|abort/i.test(msg);
@@ -68,13 +108,13 @@ export interface JsonResult<T> {
 }
 
 /**
- * Hedged fan-out: start the first model; if it has not answered within `hedgeAfterMs`, or it
+ * Hedged fan-out: start the first candidate; if it has not answered within `hedgeAfterMs`, or it
  * fails, start the next one too, and take whichever valid answer lands first. Losers are aborted.
- * This keeps latency near the fastest healthy model when the preferred one is overloaded.
+ * This keeps latency near the fastest healthy option when the preferred one is overloaded.
  */
-export function hedged<R>(
-  models: readonly string[],
-  run: (model: string, signal: AbortSignal) => Promise<R>,
+export function hedged<C, R>(
+  items: readonly C[],
+  run: (item: C, signal: AbortSignal) => Promise<R>,
   opts: { hedgeAfterMs: number; deadlineMs: number; perAttemptMs: number; rounds?: number; backoffMs?: number },
 ): Promise<R | null> {
   return new Promise((resolve) => {
@@ -95,9 +135,9 @@ export function hedged<R>(
     }
     function launch() {
       if (settled) return;
-      if (next >= models.length) {
+      if (next >= items.length) {
         if (running > 0) return;
-        // Overload spikes are short: after a backoff, sweep the chain once more before giving up.
+        // Overload spikes are short: after a backoff, sweep the list once more before giving up.
         if (round < (opts.rounds ?? 1)) {
           round++;
           next = 0;
@@ -107,14 +147,14 @@ export function hedged<R>(
         finish(null);
         return;
       }
-      const model = models[next++]!;
+      const item = items[next++]!;
       const ctrl = new AbortController();
       controllers.push(ctrl);
       running++;
       clearTimeout(hedgeTimer);
       hedgeTimer = setTimeout(launch, opts.hedgeAfterMs);
       const signal = AbortSignal.any([ctrl.signal, AbortSignal.timeout(opts.perAttemptMs)]);
-      run(model, signal).then(finish, () => {
+      run(item, signal).then(finish, () => {
         running--;
         launch();
       });
@@ -122,6 +162,8 @@ export function hedged<R>(
     launch();
   });
 }
+
+const errText = (err: unknown, n = 160) => (err instanceof Error ? err.message.slice(0, n) : 'unknown');
 
 export async function generateJson<T>(opts: {
   system: string;
@@ -134,9 +176,10 @@ export async function generateJson<T>(opts: {
   rounds?: number;
   backoffMs?: number;
 }): Promise<JsonResult<T> | null> {
-  const client = opts.client === undefined ? getClient() : opts.client;
-  if (!client) return null;
-  const attempt = async (model: string, signal: AbortSignal): Promise<JsonResult<T>> => {
+  const slots = opts.client === undefined ? clients() : opts.client ? [{ key: 'k1', client: opts.client }] : [];
+  if (slots.length === 0) return null;
+  const attempt = async (c: Candidate, signal: AbortSignal): Promise<JsonResult<T>> => {
+    if (outOfQuota(c)) throw new Error(`${slotId(c)} is out of quota`);
     const config: GenerateContentConfig = {
       systemInstruction: opts.system,
       responseMimeType: 'application/json',
@@ -147,25 +190,24 @@ export async function generateJson<T>(opts: {
       abortSignal: signal,
     };
     try {
-      const res = await client.models.generateContent({ model, contents: opts.prompt, config });
+      const res = await c.client.models.generateContent({ model: c.model, contents: opts.prompt, config });
       const parsed = opts.validate.safeParse(JSON.parse(res.text ?? ''));
-      if (!parsed.success) throw new SyntaxError(`${model} returned JSON that failed validation`);
-      return { data: parsed.data, model };
+      if (!parsed.success) throw new SyntaxError(`${c.model} returned JSON that failed validation`);
+      return { data: parsed.data, model: c.model };
     } catch (err) {
       if (err instanceof SyntaxError) console.warn(`[exhale] ${err.message}`);
-      else if (isRetryable(err) && !signal.aborted) {
-        coolDown(model);
-        console.warn(`[exhale] ${model} unavailable:`, err instanceof Error ? err.message.slice(0, 120) : 'unknown');
-      }
-      else if (!signal.aborted) console.warn(`[exhale] ${model} failed:`, err instanceof Error ? err.message.slice(0, 200) : 'unknown');
+      else if (!signal.aborted && isRetryable(err)) {
+        coolDown(c, err);
+        console.warn(`[exhale] ${slotId(c)} unavailable:`, errText(err, 120));
+      } else if (!signal.aborted) console.warn(`[exhale] ${slotId(c)} failed:`, errText(err));
       throw err;
     }
   };
-  return hedged(modelChain(), attempt, {
+  return hedged(candidates(slots), attempt, {
     hedgeAfterMs: opts.hedgeAfterMs ?? HEDGE_AFTER_MS,
     deadlineMs: OVERALL_DEADLINE_MS,
     perAttemptMs: PER_MODEL_TIMEOUT_MS * 2,
-    rounds: opts.rounds ?? 6,
+    rounds: opts.rounds ?? 3,
     backoffMs: opts.backoffMs ?? 1_200,
   });
 }
@@ -178,28 +220,29 @@ export interface StreamOptions {
 }
 
 /**
- * Streams text chunks. Falls through to the next model only before the first chunk arrives,
+ * Streams text chunks. Falls through to the next candidate only before the first chunk arrives,
  * so a user never sees two half-answers stitched together. Appends web sources when
  * Google Search grounding is on.
  */
 export async function* streamText(opts: StreamOptions): AsyncGenerator<string, { model: string } | null> {
-  const client = opts.client === undefined ? getClient() : opts.client;
-  if (!client) return null;
+  const slots = opts.client === undefined ? clients() : opts.client ? [{ key: 'k1', client: opts.client }] : [];
+  if (slots.length === 0) return null;
   const deadline = Date.now() + OVERALL_DEADLINE_MS;
-  const chain = modelChain();
-  // Up to three sweeps of the chain: overload spikes usually pass within seconds.
-  const attempts = [...chain, ...chain, ...chain];
-  for (const [i, model] of attempts.entries()) {
+  const list = candidates(slots);
+  // Two sweeps: overload spikes usually pass within seconds.
+  const attempts = [...list, ...list];
+  for (const [i, c] of attempts.entries()) {
     if (deadline - Date.now() < 2_000) break;
-    if (i > 0 && i % chain.length === 0) await new Promise((res) => setTimeout(res, 1_200));
+    if (outOfQuota(c)) continue;
+    if (i > 0 && i % list.length === 0) await new Promise((res) => setTimeout(res, 1_200));
     let started = false;
     const ctrl = new AbortController();
     // Time-to-first-token budget; cleared once text starts flowing.
     const firstTokenTimer = setTimeout(() => ctrl.abort(new Error('timeout waiting for first token')), FIRST_TOKEN_TIMEOUT_MS);
     const hardStop = setTimeout(() => ctrl.abort(new Error('deadline')), 55_000);
     try {
-      const stream = await client.models.generateContentStream({
-        model,
+      const stream = await c.client.models.generateContentStream({
+        model: c.model,
         contents: opts.contents,
         config: {
           systemInstruction: opts.system,
@@ -223,22 +266,22 @@ export async function* streamText(opts: StreamOptions): AsyncGenerator<string, {
         }
       }
       if (sources.size > 0) {
-        const list = [...sources.entries()]
+        const links = [...sources.entries()]
           .slice(0, 5)
           .map(([uri, title]) => `- [${title.replace(/[[\]]/g, '')}](${uri})`)
           .join('\n');
-        yield `\n\n**Sources**\n${list}`;
+        yield `\n\n**Sources**\n${links}`;
       }
-      return { model };
+      return { model: c.model };
     } catch (err) {
       if (started || !isRetryable(err)) {
-        console.warn(`[exhale] stream ${model} failed:`, err instanceof Error ? err.message.slice(0, 200) : 'unknown');
+        console.warn(`[exhale] stream ${slotId(c)} failed:`, errText(err, 200));
         if (started) yield '\n\n_The answer was cut short. Please ask again._';
         return null;
       }
-      // A search-quota error says nothing about the model's health for plain requests.
-      const searchQuota = opts.search && /429|quota/i.test(err instanceof Error ? err.message : String(err));
-      if (!searchQuota) coolDown(model);
+      // A search-quota error says nothing about the pair's health for plain requests.
+      const searchQuota = opts.search && /429|quota/i.test(errText(err, 400));
+      if (!searchQuota) coolDown(c, err);
     } finally {
       clearTimeout(firstTokenTimer);
       clearTimeout(hardStop);

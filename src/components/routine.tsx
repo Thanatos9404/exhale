@@ -59,6 +59,7 @@ export function RoutineRow({
   item,
   members,
   why,
+  whyBy = 'Gemini',
   done,
   onToggleDone,
   defaultOpen = false,
@@ -67,6 +68,8 @@ export function RoutineRow({
   item: RoutineItem;
   members: Member[];
   why?: string | undefined;
+  /** Which model wrote the why. */
+  whyBy?: string;
   done?: boolean;
   onToggleDone?: (() => void) | undefined;
   defaultOpen?: boolean;
@@ -151,7 +154,7 @@ export function RoutineRow({
               {why && (
                 <div className="rounded-lg border border-line bg-surface-2 p-3">
                   <div className="mb-1 inline-flex items-center gap-1.5 text-xs font-medium text-blue">
-                    <Sparkles size={12} aria-hidden="true" /> Why, for your family (Gemini)
+                    <Sparkles size={12} aria-hidden="true" /> Why, for your family ({whyBy})
                   </div>
                   <p className="text-[13px] text-fg">{why}</p>
                 </div>

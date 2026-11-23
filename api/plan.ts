@@ -1,4 +1,5 @@
 import { getAir } from '../server/airCache.js';
+import { CLAUDE_MODEL, claudeJson } from '../server/claude.js';
 import { generateJson } from '../server/gemini.js';
 import { HttpError, clientKey, errorResponse, json, readJson } from '../server/http.js';
 import { PLAN_SYSTEM, buildPlanPrompt } from '../server/prompts.js';
@@ -33,12 +34,14 @@ export async function POST(request: Request): Promise<Response> {
     });
     const plan = buildPlan(household, air);
 
-    const ai = await generateJson({
+    const aiRequest = {
       system: PLAN_SYSTEM,
       prompt: buildPlanPrompt(plan, household),
       jsonSchema: AI_PLAN_JSON_SCHEMA,
       validate: aiPlanSchema,
-    });
+    };
+    // Gemini first (every key and model), then Claude Haiku, then the engine's own words.
+    const ai = (await generateJson(aiRequest)) ?? (await claudeJson(aiRequest));
 
     // Keep only explanations for items that actually exist, in engine order.
     let aiPlan: AiPlan | null = null;
@@ -50,7 +53,7 @@ export async function POST(request: Request): Promise<Response> {
     const response: PlanResponse = {
       plan,
       ai: aiPlan,
-      source: aiPlan ? 'gemini' : 'rules',
+      source: !aiPlan ? 'rules' : ai?.model === CLAUDE_MODEL ? 'claude' : 'gemini',
       model: ai?.model ?? null,
     };
     return json(response, 200, { 'x-ratelimit-remaining': String(rl.remaining) });

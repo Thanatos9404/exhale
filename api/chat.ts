@@ -1,5 +1,6 @@
 import type { Content } from '@google/genai';
 import { getAir } from '../server/airCache.js';
+import { claudeStream, getClaude, type ChatTurn } from '../server/claude.js';
 import { fallbackAnswer } from '../server/fallback.js';
 import { getClient, streamText } from '../server/gemini.js';
 import { HttpError, SECURITY_HEADERS, clientKey, errorResponse, readJson } from '../server/http.js';
@@ -46,7 +47,9 @@ export async function POST(request: Request): Promise<Response> {
 
     const encoder = new TextEncoder();
     const question = messages[messages.length - 1]!.text;
-    const useAi = getClient() !== null;
+    const useGemini = getClient() !== null;
+    const useClaude = getClaude() !== null;
+    const useAi = useGemini || useClaude;
 
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
@@ -57,12 +60,23 @@ export async function POST(request: Request): Promise<Response> {
             controller.enqueue(encoder.encode(chunk));
           }
         };
-        if (useAi) {
+        if (useGemini) {
           await pipe(search);
           if (!sent && search) {
             // Grounding can be unavailable (quota or region); answer from live data instead of failing.
             controller.enqueue(encoder.encode('_Web search is unavailable right now, so this answer uses your live data only._\n\n'));
             await pipe(false);
+          }
+        }
+        if (!sent && useClaude) {
+          // Gemini exhausted every key and model: Claude Haiku answers from the same grounded context.
+          const turns: ChatTurn[] = contents.map((c) => ({
+            role: c.role === 'model' ? 'assistant' : 'user',
+            content: (c.parts ?? []).map((p) => p.text ?? '').join(''),
+          }));
+          for await (const chunk of claudeStream({ system: CHAT_SYSTEM, messages: turns })) {
+            sent = true;
+            controller.enqueue(encoder.encode(chunk));
           }
         }
         if (!sent) controller.enqueue(encoder.encode(fallbackAnswer(question, plan, useAi)));
@@ -74,7 +88,7 @@ export async function POST(request: Request): Promise<Response> {
       status: 200,
       headers: {
         'content-type': 'text/plain; charset=utf-8',
-        'x-exhale-source': useAi ? 'gemini' : 'rules',
+        'x-exhale-source': useGemini ? 'gemini' : useClaude ? 'claude' : 'rules',
         'x-ratelimit-remaining': String(rl.remaining),
         ...SECURITY_HEADERS,
       },

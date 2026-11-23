@@ -25,7 +25,7 @@ export type AiTip = z.infer<typeof tip>;
 export interface PlanResponse {
   plan: PlanResult;
   ai: AiPlan | null;
-  source: 'gemini' | 'rules';
+  source: 'gemini' | 'claude' | 'rules';
   model: string | null;
 }
 
@@ -33,6 +33,8 @@ export interface HealthResponse {
   ok: boolean;
   ai: boolean;
   model: string | null;
+  /** Configured providers in fallback order, e.g. ["gemini", "claude"]. */
+  providers?: string[];
 }
 
 export interface ChatMessage {

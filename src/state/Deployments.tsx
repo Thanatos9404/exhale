@@ -50,7 +50,7 @@ const deploymentSchema = z.object({
   at: z.string(),
   placeLabel: z.string(),
   cutPct: z.number(),
-  source: z.enum(['gemini', 'rules']),
+  source: z.enum(['gemini', 'claude', 'rules']),
   model: z.string().nullable(),
   response: z.object({ plan: z.object({ items: z.array(z.unknown()) }).passthrough() }).passthrough(),
 });
@@ -107,10 +107,11 @@ export function DeploymentsProvider({ children }: { children: ReactNode }) {
       const c = household.commute;
       log('info', `Testing ${local.items.length} changes (commute: ${MODE_LABEL[c.mode].toLowerCase()}, ${c.distanceKm} km)`);
       await sleep(pace);
-      log('ai', 'Asking Gemini to explain the plan and tailor indoor hacks and swaps');
+      log('ai', 'Asking Gemini to explain the plan and tailor indoor hacks and swaps (Claude Haiku as fallback)');
       const response = await requestPlan(place, household);
       if (response.source === 'gemini') log('ok', `Gemini (${response.model}) wrote ${response.ai?.items.length ?? 0} explanations`);
-      else log('warn', 'Gemini unavailable, using the rules engine explanations');
+      else if (response.source === 'claude') log('ok', `Gemini busy, Claude (${response.model}) wrote ${response.ai?.items.length ?? 0} explanations`);
+      else log('warn', 'AI providers unavailable, using the rules engine explanations');
       const t = response.plan.totals;
       log(
         'ok',

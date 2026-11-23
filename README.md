@@ -121,8 +121,10 @@ flowchart LR
 | `api/chat.ts` | Google Search grounding (`tools: [{ googleSearch: {} }]`) | Current local advisories (for example GRAP stages), with cited sources |
 | `server/gemini.ts` | Hedged requests across a model chain, with a circuit breaker | `gemini-3.6-flash` first; if it has not answered in 7 s a Flash-Lite model races it and the first valid answer wins. Overloaded models cool down for 3 min; per-attempt timeouts and an overall deadline fit a serverless function |
 | All calls | `thinkingLevel: low` | The engine already did the reasoning, so light thinking halves latency |
+| `server/gemini.ts` | Key rotation (`GEMINI_API_KEYS`, comma separated) | Every key × model pair is a candidate with its own circuit breaker, so one exhausted key never takes the feature down |
+| `server/claude.ts` | Claude Haiku (`claude-haiku-5-5`) as second provider, optional | Used only when every Gemini key and model fails: structured JSON output (`output_config.format`) for plans and streaming for chat, with a per-minute budget. Enabled by setting `ANTHROPIC_API_KEY` |
 
-Without a key the app still works end to end: plans use the engine's own explanations and chat answers come from an offline responder built on the plan.
+Without any key the app still works end to end: plans use the engine's own explanations and chat answers come from an offline responder built on the plan. The order is always Gemini, then Claude Haiku (if configured), then the rules engine.
 
 ## Security
 
@@ -136,11 +138,11 @@ Without a key the app still works end to end: plans use the engine's own explana
 
 ## Testing
 
-`npm test` runs 90+ tests with Vitest:
+`npm test` runs 100+ tests with Vitest:
 
 - **Science:** AQI breakpoints for both standards, averaging, dose and cigarette maths, indoor mass balance, commute ranking, lid and clean-window detection.
 - **Planner:** decisions for different households (asthmatic child sent indoors, adult moved to a clean hour, habit kept when clean, WFH skips commute, upgrades separated, purifier and fuel cases), determinism, what-if selection, and that the plan never makes a day worse.
-- **Server and API:** rate limiter, body limits, error hiding, prompt guardrails, Gemini fallback and validation with a fake client, streaming with grounding sources, offline answers, `/api/plan`, `/api/chat` and `/api/health` handlers including invalid input, injection attempts and 429s.
+- **Server and API:** rate limiter, body limits, error hiding, prompt guardrails, Gemini hedging, retries and key rotation, the Claude Haiku fallback (structured output, refusals, budget, streaming), validation with fake clients, streaming with grounding sources, offline answers, `/api/plan`, `/api/chat` and `/api/health` handlers including invalid input, injection attempts and 429s.
 - **UI:** chart keyboard reading, form primitives, routine rows, page flows (what-if toggles, purifier lowering indoor PM2.5, settings validation) and **axe-core accessibility checks** on the Overview, Settings and routine lists.
 
 CI (`.github/workflows/ci.yml`) runs typecheck, lint, tests and build on every push.
