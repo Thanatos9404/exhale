@@ -127,6 +127,18 @@ describe('gemini wrapper', () => {
     expect(r?.data).toEqual({ ok: true });
   });
 
+  it('sweeps the chain again after a backoff when every model is briefly overloaded', async () => {
+    let calls = 0;
+    const r = await hedged(['a', 'b'], (m) => (++calls > 2 && m === 'a' ? Promise.resolve('ok') : Promise.reject(new Error('503'))), {
+      hedgeAfterMs: 5,
+      deadlineMs: 2_000,
+      perAttemptMs: 500,
+      rounds: 2,
+      backoffMs: 10,
+    });
+    expect(r).toBe('ok');
+  });
+
   it('gives up cleanly when every model fails', async () => {
     const r = await hedged(['a', 'b'], () => Promise.reject(new Error('503')), { hedgeAfterMs: 5, deadlineMs: 1_000, perAttemptMs: 500 });
     expect(r).toBeNull();

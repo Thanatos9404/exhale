@@ -75,12 +75,13 @@ export interface JsonResult<T> {
 export function hedged<R>(
   models: readonly string[],
   run: (model: string, signal: AbortSignal) => Promise<R>,
-  opts: { hedgeAfterMs: number; deadlineMs: number; perAttemptMs: number },
+  opts: { hedgeAfterMs: number; deadlineMs: number; perAttemptMs: number; rounds?: number; backoffMs?: number },
 ): Promise<R | null> {
   return new Promise((resolve) => {
     const controllers: AbortController[] = [];
     let next = 0;
     let running = 0;
+    let round = 1;
     let settled = false;
     let hedgeTimer: ReturnType<typeof setTimeout> | undefined;
     const deadline = setTimeout(() => finish(null), opts.deadlineMs);
@@ -95,7 +96,15 @@ export function hedged<R>(
     function launch() {
       if (settled) return;
       if (next >= models.length) {
-        if (running === 0) finish(null);
+        if (running > 0) return;
+        // Overload spikes are short: after a backoff, sweep the chain once more before giving up.
+        if (round < (opts.rounds ?? 1)) {
+          round++;
+          next = 0;
+          hedgeTimer = setTimeout(launch, opts.backoffMs ?? 1_500);
+          return;
+        }
+        finish(null);
         return;
       }
       const model = models[next++]!;
@@ -151,6 +160,8 @@ export async function generateJson<T>(opts: {
     hedgeAfterMs: opts.hedgeAfterMs ?? HEDGE_AFTER_MS,
     deadlineMs: OVERALL_DEADLINE_MS,
     perAttemptMs: PER_MODEL_TIMEOUT_MS * 2,
+    rounds: 3,
+    backoffMs: 1_500,
   });
 }
 
