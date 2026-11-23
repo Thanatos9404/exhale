@@ -50,6 +50,7 @@ function NotFound() {
   );
 }
 
+/** The app frame: header, tabs, the routed page, footer and toasts, inside the command menu. */
 export default function App() {
   useDocumentTitle();
   const { theme } = useAppState();

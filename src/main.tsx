@@ -7,12 +7,13 @@ import './styles/index.css';
 import App from './App';
 import { AppStateProvider } from './state/AppState';
 import { DeploymentsProvider } from './state/Deployments';
+import { defined } from './lib/assert';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
 });
 
-createRoot(document.getElementById('root')!).render(
+createRoot(defined(document.getElementById('root'), '#root element')).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <AppStateProvider>

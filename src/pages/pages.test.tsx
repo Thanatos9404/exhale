@@ -3,9 +3,10 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axeViolations, renderApp } from '@/test/render';
 import { makeSnapshot } from '@/test/fixtures';
+import type * as OpenMeteo from '@/lib/air/openMeteo';
 
 vi.mock('@/lib/air/openMeteo', async (orig) => {
-  const actual = await orig<typeof import('@/lib/air/openMeteo')>();
+  const actual = await orig<typeof OpenMeteo>();
   return {
     ...actual,
     fetchAirSnapshot: vi.fn(async () => makeSnapshot()),
@@ -65,7 +66,7 @@ describe('Indoor lab', () => {
         screen
           .getByText('Indoor PM2.5')
           .parentElement!.querySelector('dd span')!
-          .textContent!.replace(/,/g, ''),
+          .textContent.replace(/,/g, ''),
       );
     await screen.findByText('Indoor PM2.5');
     const before = readout();

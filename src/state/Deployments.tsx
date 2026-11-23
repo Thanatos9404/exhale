@@ -15,19 +15,24 @@ import { fetchAirSnapshot } from '@/lib/air/openMeteo';
 import { buildPlan } from '@/lib/planner/engine';
 import { MODE_LABEL } from '@/lib/science/commute';
 import { useAppState } from './AppState';
+import { PREFERS_REDUCED_MOTION, mediaMatches } from './media';
 
 /**
  * "Deploying" a routine: the server re-fetches live data, runs the planner and asks Gemini to
  * explain it. While that runs, the UI shows a build log of the real steps with real numbers.
  */
 
+/** Severity and source of one build-log line. */
 export type LogKind = 'info' | 'ok' | 'warn' | 'error' | 'ai';
+
+/** One line of the deploy build log. */
 export interface LogLine {
   at: number;
   kind: LogKind;
   text: string;
 }
 
+/** A finished deployment: the plan response plus the facts shown in the history list. */
 export interface Deployment {
   id: string;
   at: string;
@@ -51,7 +56,16 @@ interface DeploymentsState {
   toggleDone: (id: string) => void;
 }
 
+/** Context behind `useDeployments`; null outside `DeploymentsProvider`. */
 const Ctx = createContext<DeploymentsState | null>(null);
+
+/** Stored responses are only checked for a plan with items; the rest was written by this app. */
+const storedResponseShape = z.looseObject({
+  plan: z.looseObject({ items: z.array(z.unknown()) }),
+});
+const storedResponseSchema = z.custom<PlanResponse>(
+  (raw) => storedResponseShape.safeParse(raw).success,
+);
 
 const deploymentSchema = z.object({
   id: z.string(),
@@ -60,14 +74,12 @@ const deploymentSchema = z.object({
   cutPct: z.number(),
   source: z.enum(['gemini', 'claude', 'rules']),
   model: z.string().nullable(),
-  response: z
-    .object({ plan: z.object({ items: z.array(z.unknown()) }).passthrough() })
-    .passthrough(),
+  response: storedResponseSchema,
 });
 
-const parseHistory = (raw: unknown) => {
+const parseHistory = (raw: unknown): Deployment[] | null => {
   const r = z.array(deploymentSchema).max(8).safeParse(raw);
-  return r.success ? (r.data as unknown as Deployment[]) : null;
+  return r.success ? r.data : null;
 };
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
@@ -78,6 +90,7 @@ const parseDone = (raw: unknown) => {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Runs deployments, keeps their build log and history, and tracks which plan items are done today. */
 export function DeploymentsProvider({ children }: { children: ReactNode }) {
   const { household, place } = useAppState();
   const [status, setStatus] = useState<Status>('idle');
@@ -101,7 +114,7 @@ export function DeploymentsProvider({ children }: { children: ReactNode }) {
     setStatus('building');
     setError(null);
     setLogs([]);
-    const pace = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 0 : 140;
+    const pace = mediaMatches(PREFERS_REDUCED_MOTION) ? 0 : 140;
     try {
       log('info', `Fetching live air quality for ${place.label} (Open-Meteo, CAMS model)`);
       const air = await fetchAirSnapshot(place);
@@ -193,6 +206,7 @@ export function DeploymentsProvider({ children }: { children: ReactNode }) {
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
+/** Reads deployment state and actions; throws when used outside `DeploymentsProvider`. */
 export function useDeployments(): DeploymentsState {
   const v = useContext(Ctx);
   if (!v) throw new Error('useDeployments must be used inside DeploymentsProvider');
