@@ -81,9 +81,11 @@ export default function Routine() {
         <div className="mt-6 flex items-start gap-3 rounded-xl border border-dashed border-line-strong p-4 text-[13px] text-muted">
           <Sparkles size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-blue" />
           <p>
-            {latest
-              ? 'This deployment used the rules engine because Gemini was unavailable. The numbers are identical; only the personal explanations are missing.'
-              : 'Not deployed yet. These actions come straight from the planning engine using live data. Deploy to have Gemini explain each one for your family and add tailored hacks.'}
+            {building
+              ? 'Deploying: Gemini is explaining today’s plan for your family. The actions below are already live from the planning engine.'
+              : latest
+                ? 'This deployment used the rules engine because the AI providers were busy. The numbers are identical; only the personal explanations are missing. Redeploy in a minute.'
+                : 'Not deployed yet. These actions come straight from the planning engine using live data. Deploy to have Gemini explain each one for your family and add tailored hacks.'}
           </p>
         </div>
       )}
