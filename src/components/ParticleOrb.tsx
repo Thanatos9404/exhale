@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useReducedMotion } from 'motion/react';
+import { useLatest } from '@/hooks/useLatest';
 
 /**
  * A tiny 3D particle sphere drawn on a 2D canvas: the assistant's mark.
@@ -17,9 +18,8 @@ export function ParticleOrb({
   className?: string;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
-  const activeRef = useRef(active);
+  const activeRef = useLatest(active);
   const reduced = useReducedMotion();
-  activeRef.current = active;
 
   useEffect(() => {
     const canvas = ref.current;
@@ -93,7 +93,7 @@ export function ParticleOrb({
       io.disconnect();
       document.removeEventListener('visibilitychange', onVis);
     };
-  }, [size, reduced]);
+  }, [size, reduced, activeRef]);
 
   return (
     <canvas

@@ -44,6 +44,7 @@ export function useAqiSeries() {
   }, [air.data, household.standard]);
 }
 
+/** Server health: whether an AI provider is configured and which model answers. */
 export function useHealth() {
   return useQuery({
     queryKey: ['health'],

@@ -93,6 +93,9 @@ export function CommandMenuProvider({ children }: { children: ReactNode }) {
   );
 }
 
+const MIN_SEARCH_CHARS = 2;
+const SEARCH_DEBOUNCE_MS = 250;
+
 function CommandDialog({
   open,
   onOpenChange,
@@ -114,13 +117,15 @@ function CommandDialog({
   /** The query whose search has finished, so "no match" never flashes while typing. */
   const [searched, setSearched] = useState('');
 
+  const term = query.trim();
+  const searchable = open && term.length >= MIN_SEARCH_CHARS;
+  // Short or closed queries show nothing; the last results stay in state for the next search.
+  const places = searchable ? results : [];
+
   // Debounced, abortable city search.
   useEffect(() => {
-    const q = query.trim();
-    if (!open || q.length < 2) {
-      setResults([]);
-      return;
-    }
+    if (!searchable) return;
+    const q = term;
     const ctrl = new AbortController();
     const t = setTimeout(() => {
       setSearching(true);
@@ -131,12 +136,12 @@ function CommandDialog({
           setSearching(false);
           if (!ctrl.signal.aborted) setSearched(q);
         });
-    }, 250);
+    }, SEARCH_DEBOUNCE_MS);
     return () => {
       clearTimeout(t);
       ctrl.abort();
     };
-  }, [query, open]);
+  }, [term, searchable]);
 
   const close = () => onOpenChange(false);
   const go = (path: string) => {
@@ -209,15 +214,12 @@ function CommandDialog({
             <LocateFixed size={16} aria-hidden="true" className="text-muted" />
             Use my current location
           </Command.Item>
-          {query.trim().length >= 2 &&
-            !searching &&
-            searched === query.trim() &&
-            results.length === 0 && (
-              <div role="status" className="px-3 py-2 text-[13px] text-muted">
-                No places match “{query.trim()}”. Check the spelling or try a nearby city.
-              </div>
-            )}
-          {results.map((r) => (
+          {query.trim().length >= 2 && !searching && searched === term && places.length === 0 && (
+            <div role="status" className="px-3 py-2 text-[13px] text-muted">
+              No places match “{query.trim()}”. Check the spelling or try a nearby city.
+            </div>
+          )}
+          {places.map((r) => (
             <Command.Item
               key={r.id}
               value={`place-${r.id}`}
@@ -233,7 +235,7 @@ function CommandDialog({
               <span className="ml-auto truncate text-xs text-subtle">{r.region}</span>
             </Command.Item>
           ))}
-          {results.length === 0 &&
+          {places.length === 0 &&
             recentPlaces.map((p) => (
               <Command.Item
                 key={p.label}

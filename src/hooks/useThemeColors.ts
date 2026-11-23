@@ -1,21 +1,31 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 
-/** Resolves CSS custom properties to concrete colours and re-resolves when the theme flips. */
+const FALLBACK_COLOR = '#888';
+
+/** Calls `onChange` whenever the root `data-theme` attribute flips. */
+function subscribeToTheme(onChange: () => void): () => void {
+  const mo = new MutationObserver(onChange);
+  mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  return () => mo.disconnect();
+}
+
+const readTheme = () => document.documentElement.getAttribute('data-theme');
+
+function readCssVars<T extends string>(names: readonly T[]): Record<T, string> {
+  const style = getComputedStyle(document.documentElement);
+  return Object.fromEntries(
+    names.map((n) => [n, style.getPropertyValue(`--${n}`).trim() || FALLBACK_COLOR]),
+  ) as Record<T, string>;
+}
+
+/**
+ * Resolves CSS custom properties to concrete colours. The theme attribute is the external
+ * store: a flip re-renders the caller, and every render reads the current values for the
+ * names it asks for.
+ */
 export function useCssVars<T extends string>(names: readonly T[]): Record<T, string> {
-  const read = () => {
-    const style = getComputedStyle(document.documentElement);
-    return Object.fromEntries(
-      names.map((n) => [n, style.getPropertyValue(`--${n}`).trim() || '#888']),
-    ) as Record<T, string>;
-  };
-  const [vars, setVars] = useState(read);
-  useEffect(() => {
-    const mo = new MutationObserver(() => setVars(read()));
-    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    return () => mo.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [names.join(',')]);
-  return vars;
+  useSyncExternalStore(subscribeToTheme, readTheme);
+  return readCssVars(names);
 }
 
 /** True while the element is on screen and the tab is visible: used to pause animation loops. */
@@ -40,10 +50,11 @@ export function useInView<E extends Element>(ref: React.RefObject<E | null>): bo
   return inView;
 }
 
+/** Whether this browser can create a WebGL (2 or 1) context for the 3D views. */
 export function hasWebGL(): boolean {
   try {
     const c = document.createElement('canvas');
-    return Boolean(c.getContext('webgl2') || c.getContext('webgl'));
+    return Boolean(c.getContext('webgl2') ?? c.getContext('webgl'));
   } catch {
     return false;
   }

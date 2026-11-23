@@ -35,6 +35,7 @@ export const KIND_ICON: Record<RoutineKind, typeof Wind> = {
   upgrade: Wrench,
 };
 
+/** Coloured status dot with its label, as in a deployment list. */
 export function StatusLabel({ status }: { status: RoutineStatus }) {
   const m = STATUS_META[status];
   return (
@@ -45,6 +46,7 @@ export function StatusLabel({ status }: { status: RoutineStatus }) {
   );
 }
 
+/** The measurable wins of one action: dose not inhaled, cigarettes avoided and CO2e saved. */
 export function ImpactChips({ item, compact = false }: { item: RoutineItem; compact?: boolean }) {
   const { impact } = item;
   const chips: { text: string; tone: string; title: string }[] = [];
@@ -82,16 +84,19 @@ export function ImpactChips({ item, compact = false }: { item: RoutineItem; comp
   );
 }
 
-export function RoutineRow({
-  item,
-  members,
-  why,
-  whyBy = 'Gemini',
-  done,
-  onToggleDone,
-  defaultOpen = false,
-  compact = false,
-}: {
+/** Home actions get a more specific icon than their kind when the title names the source. */
+function RoutineIcon({ item }: { item: RoutineItem }) {
+  if (item.kind === 'home' && /cook|heater/i.test(item.title)) {
+    return <Flame size={14} aria-hidden="true" />;
+  }
+  if (item.kind === 'home' && /purifier/i.test(item.title)) {
+    return <Fan size={14} aria-hidden="true" />;
+  }
+  const Icon = KIND_ICON[item.kind];
+  return <Icon size={14} aria-hidden="true" />;
+}
+
+export interface RoutineRowProps {
   item: RoutineItem;
   members: Member[];
   why?: string | undefined;
@@ -102,15 +107,21 @@ export function RoutineRow({
   defaultOpen?: boolean;
   /** Narrow cards: drop the people column and give the action more room. */
   compact?: boolean;
-}) {
+}
+
+/** One routine action as an expandable deployment-style row. */
+export function RoutineRow({
+  item,
+  members,
+  why,
+  whyBy = 'Gemini',
+  done = false,
+  onToggleDone,
+  defaultOpen = false,
+  compact = false,
+}: RoutineRowProps) {
   const [open, setOpen] = useState(defaultOpen);
   const reduced = useReducedMotion();
-  const Icon =
-    item.kind === 'home' && /cook|heater/i.test(item.title)
-      ? Flame
-      : item.kind === 'home' && /purifier/i.test(item.title)
-        ? Fan
-        : KIND_ICON[item.kind];
   const who = members.filter((m) => item.memberIds.includes(m.id));
   const panelId = `row-${item.id}`;
 
@@ -138,7 +149,7 @@ export function RoutineRow({
           className="group flex min-w-0 items-start gap-3 rounded-md text-left"
         >
           <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-md border border-line bg-surface-2 text-muted">
-            <Icon size={14} aria-hidden="true" />
+            <RoutineIcon item={item} />
           </span>
           <span className="min-w-0">
             <span
@@ -177,20 +188,7 @@ export function RoutineRow({
           <ImpactChips item={item} />
         </div>
         {onToggleDone ? (
-          <button
-            type="button"
-            onClick={onToggleDone}
-            aria-pressed={done}
-            aria-label={done ? `Mark "${item.title}" not done` : `Mark "${item.title}" done`}
-            className={cn(
-              'press hidden size-7 place-items-center rounded-md border transition-colors md:grid',
-              done
-                ? 'border-transparent bg-green text-background'
-                : 'border-line-strong text-subtle hover:bg-hover',
-            )}
-          >
-            <Check size={14} aria-hidden="true" />
-          </button>
+          <DoneToggle title={item.title} done={done} onToggle={onToggleDone} />
         ) : (
           <span className="hidden md:block" />
         )}
@@ -205,49 +203,93 @@ export function RoutineRow({
             transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
             className="overflow-hidden"
           >
-            <div className="grid gap-3 px-4 pb-4 md:grid-cols-2 md:pl-[204px] md:pr-5">
-              {why && (
-                <div className="rounded-lg border border-line bg-surface-2 p-3">
-                  <div className="mb-1 inline-flex items-center gap-1.5 text-xs font-medium text-blue">
-                    <Sparkles size={12} aria-hidden="true" /> Why, for your family ({whyBy})
-                  </div>
-                  <p className="text-[13px] text-fg">{why}</p>
-                </div>
-              )}
-              <div className="rounded-lg border border-line p-3">
-                <div className="mb-1 text-xs font-medium text-muted">How we worked it out</div>
-                <p className="text-[13px] text-fg">{item.detail}</p>
-                <dl className="tabular mt-2 grid grid-cols-3 gap-2 text-xs">
-                  <div>
-                    <dt className="text-subtle">Dose saved</dt>
-                    <dd className="font-medium text-fg">{fmtDose(item.impact.doseSavedUg)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-subtle">Of their day</dt>
-                    <dd className="font-medium text-fg">
-                      {fmtDec(item.impact.exposureCutPct, 1)}%
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-subtle">Cigarettes</dt>
-                    <dd className="font-medium text-fg">{fmtCig(item.impact.cigarettesAvoided)}</dd>
-                  </div>
-                </dl>
-                {onToggleDone && (
-                  <button
-                    type="button"
-                    onClick={onToggleDone}
-                    aria-pressed={done}
-                    className="mt-3 text-xs font-medium text-blue hover:underline md:hidden"
-                  >
-                    {done ? 'Mark not done' : 'Mark done'}
-                  </button>
-                )}
-              </div>
-            </div>
+            <RowDetails
+              item={item}
+              why={why}
+              whyBy={whyBy}
+              done={done}
+              onToggleDone={onToggleDone}
+            />
           </motion.div>
         )}
       </AnimatePresence>
     </li>
+  );
+}
+
+function DoneToggle({
+  title,
+  done,
+  onToggle,
+}: {
+  title: string;
+  done: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={done}
+      aria-label={done ? `Mark "${title}" not done` : `Mark "${title}" done`}
+      className={cn(
+        'press hidden size-7 place-items-center rounded-md border transition-colors md:grid',
+        done
+          ? 'border-transparent bg-green text-background'
+          : 'border-line-strong text-subtle hover:bg-hover',
+      )}
+    >
+      <Check size={14} aria-hidden="true" />
+    </button>
+  );
+}
+
+/** The expanded panel: the model's explanation for this family and the engine's working. */
+function RowDetails({
+  item,
+  why,
+  whyBy,
+  done,
+  onToggleDone,
+}: Pick<RoutineRowProps, 'item' | 'why' | 'onToggleDone'> & { whyBy: string; done: boolean }) {
+  return (
+    <div className="grid gap-3 px-4 pb-4 md:grid-cols-2 md:pl-[204px] md:pr-5">
+      {why && (
+        <div className="rounded-lg border border-line bg-surface-2 p-3">
+          <div className="mb-1 inline-flex items-center gap-1.5 text-xs font-medium text-blue">
+            <Sparkles size={12} aria-hidden="true" /> Why, for your family ({whyBy})
+          </div>
+          <p className="text-[13px] text-fg">{why}</p>
+        </div>
+      )}
+      <div className="rounded-lg border border-line p-3">
+        <div className="mb-1 text-xs font-medium text-muted">How we worked it out</div>
+        <p className="text-[13px] text-fg">{item.detail}</p>
+        <dl className="tabular mt-2 grid grid-cols-3 gap-2 text-xs">
+          <div>
+            <dt className="text-subtle">Dose saved</dt>
+            <dd className="font-medium text-fg">{fmtDose(item.impact.doseSavedUg)}</dd>
+          </div>
+          <div>
+            <dt className="text-subtle">Of their day</dt>
+            <dd className="font-medium text-fg">{fmtDec(item.impact.exposureCutPct, 1)}%</dd>
+          </div>
+          <div>
+            <dt className="text-subtle">Cigarettes</dt>
+            <dd className="font-medium text-fg">{fmtCig(item.impact.cigarettesAvoided)}</dd>
+          </div>
+        </dl>
+        {onToggleDone && (
+          <button
+            type="button"
+            onClick={onToggleDone}
+            aria-pressed={done}
+            className="mt-3 text-xs font-medium text-blue hover:underline md:hidden"
+          >
+            {done ? 'Mark not done' : 'Mark done'}
+          </button>
+        )}
+      </div>
+    </div>
   );
 }

@@ -1,10 +1,11 @@
-import { useLayoutEffect, useMemo, useRef } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { useReducedMotion } from 'motion/react';
 import * as THREE from 'three';
 import { useCssVars, useInView } from '@/hooks/useThemeColors';
 import type { AqiLevel } from '@/lib/air/aqi';
+import { seededRandom } from './random';
 
 /**
  * The air column: a city block under its smog. Particle count follows PM2.5, the translucent
@@ -29,16 +30,9 @@ export function lidY(blh: number): number {
   return 0.35 + Math.pow(t, 0.6) * 3.9;
 }
 
+/** Share of the particle pool drawn for a PM2.5 level (µg/m³); 220 and above fills the column. */
 export function visibleFraction(pm25: number): number {
   return Math.min(1, Math.max(0.04, pm25 / 220));
-}
-
-function seeded(seed: number) {
-  let s = seed;
-  return () => {
-    s = (s * 16807) % 2147483647;
-    return (s - 1) / 2147483646;
-  };
 }
 
 const vertex = /* glsl */ `
@@ -80,16 +74,29 @@ const fragment = /* glsl */ `
   }
 `;
 
-function Smog({
-  pm25,
-  blh,
-  wind,
-  color,
-  animate,
-}: Omit<AirColumnProps, 'level'> & { color: string; animate: boolean }) {
+interface SmogProps extends Omit<AirColumnProps, 'level'> {
+  color: string;
+  animate: boolean;
+}
+
+/** Shader uniforms start at the live values; later changes are eased in per frame. */
+function createSmogUniforms({ pm25, blh, wind, color }: Omit<SmogProps, 'animate'>) {
+  return {
+    uTime: { value: 0 },
+    uLid: { value: lidY(blh) },
+    uWind: { value: wind },
+    uDensity: { value: visibleFraction(pm25) },
+    uPixel: { value: Math.min(2, window.devicePixelRatio || 1) },
+    uColor: { value: new THREE.Color(color) },
+  };
+}
+
+type SmogUniforms = ReturnType<typeof createSmogUniforms>;
+
+function Smog({ pm25, blh, wind, color, animate }: SmogProps) {
   const material = useRef<THREE.ShaderMaterial>(null);
   const geometry = useMemo(() => {
-    const rand = seeded(7);
+    const rand = seededRandom(7);
     const pos = new Float32Array(MAX_PARTICLES * 3);
     const seed = new Float32Array(MAX_PARTICLES * 4);
     for (let i = 0; i < MAX_PARTICLES; i++) {
@@ -104,29 +111,19 @@ function Smog({
     return g;
   }, []);
 
-  const uniforms = useMemo(
-    () => ({
-      uTime: { value: 0 },
-      uLid: { value: lidY(blh) },
-      uWind: { value: wind },
-      uDensity: { value: visibleFraction(pm25) },
-      uPixel: { value: Math.min(2, window.devicePixelRatio || 1) },
-      uColor: { value: new THREE.Color(color) },
-    }),
-    // Created once; targets are eased in useFrame.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
+  // Built once; the frame loop eases them toward the live targets through the material ref.
+  const [initialUniforms] = useState(() => createSmogUniforms({ pm25, blh, wind, color }));
 
   useFrame((_, delta) => {
-    const u = material.current?.uniforms;
-    if (!u) return;
+    if (!material.current) return;
+    // three.js types uniforms as an open record; this material was built by createSmogUniforms.
+    const u = material.current.uniforms as SmogUniforms;
     const k = animate ? Math.min(1, delta * 3) : 1;
-    if (animate) u.uTime!.value += delta;
-    u.uLid!.value += (lidY(blh) - u.uLid!.value) * k;
-    u.uDensity!.value += (visibleFraction(pm25) - u.uDensity!.value) * k;
-    u.uWind!.value += (wind - u.uWind!.value) * k;
-    (u.uColor!.value as THREE.Color).lerp(new THREE.Color(color), k);
+    if (animate) u.uTime.value += delta;
+    u.uLid.value += (lidY(blh) - u.uLid.value) * k;
+    u.uDensity.value += (visibleFraction(pm25) - u.uDensity.value) * k;
+    u.uWind.value += (wind - u.uWind.value) * k;
+    u.uColor.value.lerp(new THREE.Color(color), k);
   });
 
   return (
@@ -135,7 +132,7 @@ function Smog({
         ref={material}
         vertexShader={vertex}
         fragmentShader={fragment}
-        uniforms={uniforms}
+        uniforms={initialUniforms}
         transparent
         depthWrite={false}
         blending={THREE.NormalBlending}
@@ -173,7 +170,7 @@ function Lid({ blh, color }: { blh: number; color: string }) {
 function City({ color, ground }: { color: string; ground: string }) {
   const mesh = useRef<THREE.InstancedMesh>(null);
   const blocks = useMemo(() => {
-    const rand = seeded(42);
+    const rand = seededRandom(42);
     const out: { x: number; z: number; h: number; w: number }[] = [];
     for (let gx = -6; gx <= 6; gx++) {
       for (let gz = -6; gz <= 6; gz++) {
@@ -194,7 +191,8 @@ function City({ color, ground }: { color: string; ground: string }) {
   }, []);
 
   useLayoutEffect(() => {
-    if (!mesh.current) return;
+    const instanced = mesh.current;
+    if (!instanced) return;
     const m = new THREE.Matrix4();
     blocks.forEach((b, i) => {
       m.compose(
@@ -202,9 +200,9 @@ function City({ color, ground }: { color: string; ground: string }) {
         new THREE.Quaternion(),
         new THREE.Vector3(b.w, b.h, b.w),
       );
-      mesh.current!.setMatrixAt(i, m);
+      instanced.setMatrixAt(i, m);
     });
-    mesh.current.instanceMatrix.needsUpdate = true;
+    instanced.instanceMatrix.needsUpdate = true;
   }, [blocks]);
 
   return (
@@ -221,6 +219,7 @@ function City({ color, ground }: { color: string; ground: string }) {
   );
 }
 
+/** The Overview hero: a 3D city block whose smog density and lid height follow the live forecast. */
 export default function AirColumn(props: AirColumnProps) {
   const wrap = useRef<HTMLDivElement>(null);
   const inView = useInView(wrap);

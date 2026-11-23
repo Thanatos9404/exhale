@@ -60,7 +60,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     <button
       ref={ref}
       type={type}
-      disabled={disabled || loading}
+      disabled={(disabled ?? false) || loading}
       aria-busy={loading || undefined}
       className={cn(
         'press inline-flex shrink-0 items-center justify-center font-medium whitespace-nowrap select-none',

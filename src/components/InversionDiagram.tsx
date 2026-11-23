@@ -15,28 +15,37 @@ gsap.registerPlugin(useGSAP);
 const H = 220;
 const GROUND = 188;
 
+/** Maps mixing height (m) onto the diagram's y axis on a log scale, so 30 m and 3 km both fit. */
 export function lidToY(blh: number): number {
   const t = Math.log10(Math.max(10, Math.min(3000, blh)) / 10) / Math.log10(300);
   return Math.round(GROUND - 22 - t * (GROUND - 52));
 }
 
+/** Smoke sources: two chimneys and a car exhaust. */
 const SOURCES = [
   { x: 74, y: 146 },
   { x: 248, y: 142 },
   { x: 330, y: GROUND - 8 },
-];
+] as const;
+const PUFF_COUNT = 15;
 
-export function InversionDiagram({
-  blh,
-  wind,
-  vc,
-  dispersion,
-}: {
+/** Puffs cycle through the sources so each one gets an even share of the smoke. */
+function sourceFor(i: number) {
+  return SOURCES[i % SOURCES.length] ?? SOURCES[0];
+}
+
+export interface InversionDiagramProps {
+  /** Boundary-layer (mixing) height in metres. */
   blh: number;
+  /** Wind speed in km/h. */
   wind: number;
+  /** Ventilation coefficient in m²/s, or null when the forecast lacks it. */
   vc: number | null;
   dispersion: Dispersion | null;
-}) {
+}
+
+/** Animated explainer of a temperature inversion trapping smoke under the live mixing height. */
+export function InversionDiagram({ blh, wind, vc, dispersion }: InversionDiagramProps) {
   const root = useRef<SVGSVGElement>(null);
   const reduced = useReducedMotion();
   const lid = lidToY(blh);
@@ -46,7 +55,7 @@ export function InversionDiagram({
     () => {
       const puffs = gsap.utils.toArray<SVGCircleElement>('.puff', root.current);
       puffs.forEach((p, i) => {
-        const src = SOURCES[i % SOURCES.length]!;
+        const src = sourceFor(i);
         const spread = (i % 2 ? 1 : -1) * (40 + ((i * 13) % 60));
         const ceiling = lid + 6 + (i % 3) * 5;
         if (reduced) {
@@ -129,12 +138,12 @@ export function InversionDiagram({
         {/* car */}
         <rect x="316" y={GROUND - 12} width="26" height="9" rx="3" fill="var(--subtle)" />
         <line x1="0" x2="400" y1={GROUND} y2={GROUND} stroke="var(--line-strong)" />
-        {Array.from({ length: 15 }, (_, i) => (
+        {Array.from({ length: PUFF_COUNT }, (_, i) => (
           <circle
             key={i}
             className="puff"
-            cx={SOURCES[i % 3]!.x}
-            cy={SOURCES[i % 3]!.y}
+            cx={sourceFor(i).x}
+            cy={sourceFor(i).y}
             r="3"
             fill="var(--muted)"
             opacity="0"
