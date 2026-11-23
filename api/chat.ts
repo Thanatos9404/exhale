@@ -51,14 +51,21 @@ export async function POST(request: Request): Promise<Response> {
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
         let sent = false;
-        if (useAi) {
-          const gen = streamText({ system: CHAT_SYSTEM, contents, search });
-          for await (const chunk of gen) {
+        const pipe = async (withSearch: boolean) => {
+          for await (const chunk of streamText({ system: CHAT_SYSTEM, contents, search: withSearch })) {
             sent = true;
             controller.enqueue(encoder.encode(chunk));
           }
+        };
+        if (useAi) {
+          await pipe(search);
+          if (!sent && search) {
+            // Grounding can be unavailable (quota or region); answer from live data instead of failing.
+            controller.enqueue(encoder.encode('_Web search is unavailable right now, so this answer uses your live data only._\n\n'));
+            await pipe(false);
+          }
         }
-        if (!sent) controller.enqueue(encoder.encode(fallbackAnswer(question, plan)));
+        if (!sent) controller.enqueue(encoder.encode(fallbackAnswer(question, plan, useAi)));
         controller.close();
       },
     });

@@ -1,4 +1,4 @@
-import { GoogleGenAI, type Content, type GenerateContentConfig } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel, type Content, type GenerateContentConfig } from '@google/genai';
 import type { ZodType } from 'zod';
 
 /**
@@ -12,8 +12,11 @@ import type { ZodType } from 'zod';
 
 export const DEFAULT_MODELS = ['gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-flash-latest'] as const;
 const PER_MODEL_TIMEOUT_MS = 12_000;
+const FIRST_TOKEN_TIMEOUT_MS = 8_000;
 const OVERALL_DEADLINE_MS = 40_000;
 const COOLDOWN_MS = 3 * 60_000;
+/** The engine already did the reasoning; the model only explains, so light thinking halves latency. */
+const THINKING = { thinkingLevel: ThinkingLevel.LOW };
 
 /** Minimal surface we use, so tests can pass a fake client. */
 export interface GenAiLike {
@@ -55,7 +58,7 @@ function coolDown(model: string) {
 /** Errors worth retrying on the next model: unknown model, quota, overload, timeouts. */
 export function isRetryable(err: unknown): boolean {
   const msg = err instanceof Error ? `${err.name} ${err.message}` : String(err);
-  return /404|not found|no longer available|429|quota|rate|503|overload|high demand|unavailable|500|internal|deadline|timeout|abort/i.test(msg);
+  return /404|not found|thinking|no longer available|429|quota|rate|503|overload|high demand|unavailable|500|internal|deadline|timeout|abort/i.test(msg);
 }
 
 export interface JsonResult<T> {
@@ -84,6 +87,7 @@ export async function generateJson<T>(opts: {
         responseJsonSchema: opts.jsonSchema,
         temperature: opts.temperature ?? 0.6,
         maxOutputTokens: 4_096,
+        thinkingConfig: THINKING,
         abortSignal: AbortSignal.timeout(Math.min(PER_MODEL_TIMEOUT_MS * 2, left)),
       };
       const res = await client.models.generateContent({ model, contents: opts.prompt, config });
@@ -123,7 +127,7 @@ export async function* streamText(opts: StreamOptions): AsyncGenerator<string, {
     let started = false;
     const ctrl = new AbortController();
     // Time-to-first-token budget; cleared once text starts flowing.
-    const firstTokenTimer = setTimeout(() => ctrl.abort(new Error('timeout waiting for first token')), PER_MODEL_TIMEOUT_MS);
+    const firstTokenTimer = setTimeout(() => ctrl.abort(new Error('timeout waiting for first token')), FIRST_TOKEN_TIMEOUT_MS);
     const hardStop = setTimeout(() => ctrl.abort(new Error('deadline')), 55_000);
     try {
       const stream = await client.models.generateContentStream({
@@ -133,6 +137,7 @@ export async function* streamText(opts: StreamOptions): AsyncGenerator<string, {
           systemInstruction: opts.system,
           temperature: 0.7,
           maxOutputTokens: 1_500,
+          thinkingConfig: THINKING,
           abortSignal: ctrl.signal,
           ...(opts.search ? { tools: [{ googleSearch: {} }] } : {}),
         },
@@ -163,7 +168,9 @@ export async function* streamText(opts: StreamOptions): AsyncGenerator<string, {
         if (started) yield '\n\n_The answer was cut short. Please ask again._';
         return null;
       }
-      coolDown(model);
+      // A search-quota error says nothing about the model's health for plain requests.
+      const searchQuota = opts.search && /429|quota/i.test(err instanceof Error ? err.message : String(err));
+      if (!searchQuota) coolDown(model);
     } finally {
       clearTimeout(firstTokenTimer);
       clearTimeout(hardStop);

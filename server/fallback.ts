@@ -43,10 +43,13 @@ const INTENTS: { test: RegExp; pick: (p: PlanResult) => RoutineItem[]; intro: (p
   },
 ];
 
-export function fallbackAnswer(question: string, plan: PlanResult): string {
+export function fallbackAnswer(question: string, plan: PlanResult, aiConfigured = false): string {
   const intent = INTENTS.find((i) => i.test.test(question));
   const items = intent ? intent.pick(plan).slice(0, 4) : plan.items.filter((i) => i.freeAction).slice(0, 4);
   const intro = intent ? intent.intro(plan) : plan.headline;
   const body = items.length ? items.map(bullet).join('\n') : '- Nothing specific to change for this today.';
-  return `${intro}\n\n${body}\n\n_Answered by Exhale's offline engine. Add a Gemini API key on the server for full conversational answers._`;
+  const note = aiConfigured
+    ? "_Gemini is busy right now, so Exhale's offline engine answered from your live plan. Ask again in a minute for a conversational answer._"
+    : "_Answered by Exhale's offline engine. Add a Gemini API key on the server for full conversational answers._";
+  return `${intro}\n\n${body}\n\n${note}`;
 }
