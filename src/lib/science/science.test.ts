@@ -161,6 +161,19 @@ describe('meteorology', () => {
     expect(w!.meanPm25).toBe(210);
   });
 
+  it('skips gaps for the cleanest run but averages around them for the dirtiest', () => {
+    const gappy = hourly.map((h, i) => (i === 37 ? { ...h, pm25: null } : h));
+    expect(cleanestWindow(gappy, 24, 48, 1, 7, 18)?.start).not.toBe(37);
+    expect(dirtiestWindow(gappy, 36, 39, 3)?.meanPm25).toBe(85);
+  });
+
+  it('never reads past either end of the series', () => {
+    expect(cleanestWindow(hourly, 40, 999, 3)?.end).toBeLessThanOrEqual(hourly.length);
+    expect(dirtiestWindow(hourly, 47, 48, 3)).toBeNull();
+    expect(lidSpans(hourly, 40, 999).at(-1)?.end).toBe(hourly.length);
+    expect(lidSpans(hourly, 30, 10)).toEqual([]);
+  });
+
   it('groups lid hours into spans', () => {
     const spans = lidSpans(hourly, 24, 48);
     expect(spans.length).toBeGreaterThan(0);

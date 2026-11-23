@@ -1,5 +1,7 @@
+/** Whole number with Indian digit grouping, e.g. 1,24,000. */
 export const fmtInt = (v: number) => Math.round(v).toLocaleString('en-IN');
 
+/** Fixed `dp` decimal places with Indian digit grouping. */
 export const fmtDec = (v: number, dp = 1) =>
   v.toLocaleString('en-IN', { minimumFractionDigits: dp, maximumFractionDigits: dp });
 
@@ -11,14 +13,17 @@ export const fmtCig = (v: number) =>
 export const fmtDose = (ug: number) =>
   Math.abs(ug) >= 10_000 ? `${fmtDec(ug / 1000, 1)} mg` : `${fmtInt(ug)} µg`;
 
+/** "HH:mm" from a wall-clock ISO time such as "2026-11-23T06:00". */
 export const hourLabel = (time: string) => time.slice(11, 16);
 
+/** "Mon 06:00" from a wall-clock ISO time; read as UTC so the local wall clock is kept. */
 export const dayHourLabel = (time: string) => {
   const d = new Date(`${time}:00Z`);
   const day = d.toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' });
   return `${day} ${time.slice(11, 16)}`;
 };
 
+/** Compact age of a timestamp: "just now", "5m ago", "3h ago" or "2d ago". */
 export function relativeTime(iso: string, now = Date.now()): string {
   const s = Math.round((now - new Date(iso).getTime()) / 1000);
   if (s < 60) return 'just now';

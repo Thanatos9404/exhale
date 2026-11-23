@@ -1,5 +1,6 @@
 /** Shared air-data shapes. Pure types, safe to import from the browser and from server functions. */
 
+/** A location to fetch air data for. Coordinates are rounded to about 1 km before use. */
 export interface Place {
   lat: number;
   lon: number;
@@ -27,6 +28,7 @@ export interface HourPoint {
   rh: number | null;
 }
 
+/** The provider's latest readings. Concentrations in µg/m³ (CO included), wind in km/h. */
 export interface CurrentConditions {
   time: string;
   pm25: number | null;
@@ -38,14 +40,17 @@ export interface CurrentConditions {
   temp: number | null;
   rh: number | null;
   wind: number | null;
+  /** Direction the wind comes from, degrees clockwise from north. */
   windDir: number | null;
   isDay: boolean;
 }
 
+/** Everything fetched for one place, ready for the engine. */
 export interface AirSnapshot {
   place: Place;
   /** ISO timestamp of when the data was fetched. */
   fetchedAt: string;
+  /** Offset of the place's local time from UTC, seconds. */
   utcOffsetSeconds: number;
   current: CurrentConditions;
   /** Hourly series covering roughly the past 24 h and the next 72 h. */
@@ -54,6 +59,8 @@ export interface AirSnapshot {
   nowIndex: number;
 }
 
+/** Which AQI scale to report in: US EPA or India's National AQI (CPCB). */
 export type AqiStandard = 'us' | 'in';
 
+/** Pollutants that feed the AQI. */
 export type Pollutant = 'pm25' | 'pm10' | 'no2' | 'o3';

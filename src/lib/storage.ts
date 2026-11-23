@@ -2,6 +2,8 @@
  * Defensive localStorage access. Storage can be missing, full or blocked (private mode),
  * and stored values can be stale or tampered with, so every read is validated.
  */
+
+/** Reads and validates a stored JSON value; null when absent, unreadable or rejected by `parse`. */
 export function readStored<T>(key: string, parse: (raw: unknown) => T | null): T | null {
   try {
     const raw = localStorage.getItem(key);
@@ -12,6 +14,7 @@ export function readStored<T>(key: string, parse: (raw: unknown) => T | null): T
   }
 }
 
+/** Stores a value as JSON, silently doing nothing when storage is unavailable or full. */
 export function writeStored(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
@@ -20,6 +23,7 @@ export function writeStored(key: string, value: unknown): void {
   }
 }
 
+/** Removes a stored value, ignoring storage errors. */
 export function removeStored(key: string): void {
   try {
     localStorage.removeItem(key);
@@ -28,6 +32,7 @@ export function removeStored(key: string): void {
   }
 }
 
+/** Every localStorage key the app uses. A version suffix changes when the stored shape does. */
 export const KEYS = {
   household: 'exhale.household.v1',
   place: 'exhale.place.v1',

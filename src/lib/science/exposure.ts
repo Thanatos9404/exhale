@@ -7,8 +7,11 @@
  * for 24 hours carries roughly the mortality risk of smoking one cigarette.
  */
 
+/** Age bands with distinct breathing rates and sensitivity. */
 export type AgeGroup = 'child' | 'teen' | 'adult' | 'senior';
+/** How hard someone is breathing; selects a row of `BREATHING_RATE`. */
 export type Activity = 'sleep' | 'rest' | 'light' | 'moderate' | 'vigorous';
+/** Health conditions that raise sensitivity to PM2.5. */
 export type Condition = 'asthma' | 'copd' | 'heart' | 'pregnancy';
 
 /** m³ of air breathed per hour. */
@@ -41,6 +44,10 @@ export function cigarettesPerDay(meanPm25: number): number {
   return cigarettesFromConcHours(meanPm25 * 24);
 }
 
+/**
+ * Relative sensitivity to PM2.5, 1 for a healthy adult. The engine's own weighting, used only
+ * to lower the outdoor-effort limit for more vulnerable people.
+ */
 export const SENSITIVITY: Record<AgeGroup | Condition, number> = {
   adult: 1,
   teen: 1.1,

@@ -9,8 +9,11 @@ import type { AirSnapshot, HourPoint, Place } from './types.js';
  * Runs unchanged in the browser and in Node 20+ server functions.
  */
 
+/** Open-Meteo air-quality endpoint (CAMS global model). */
 export const AIR_URL = 'https://air-quality-api.open-meteo.com/v1/air-quality';
+/** Open-Meteo forecast endpoint, for wind, humidity and boundary-layer height. */
 export const WEATHER_URL = 'https://api.open-meteo.com/v1/forecast';
+/** Open-Meteo geocoding endpoint, for city search. */
 export const GEOCODE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 
 const nums = z.array(z.number().nullable());
@@ -71,6 +74,7 @@ const geocodeSchema = z.object({
     .optional(),
 });
 
+/** The provider failed or sent an unexpected shape. `status` is the HTTP code, if any. */
 export class AirDataError extends Error {
   constructor(
     message: string,
@@ -89,9 +93,13 @@ async function getJson(url: string, fetchImpl: Fetch, signal?: AbortSignal): Pro
   return res.json();
 }
 
-/** Round to ~1 km so nearby requests share a cache entry and exact positions never leave the device in full precision. */
+/**
+ * Rounds a coordinate to 0.01° (about 1 km), so nearby requests share a cache entry and exact
+ * positions never leave the device in full precision.
+ */
 export const roundCoord = (v: number) => Math.round(v * 100) / 100;
 
+/** Air-quality request: current values plus hourly data for the past day and next four days. */
 export function buildAirUrl(lat: number, lon: number): string {
   const p = new URLSearchParams({
     latitude: String(roundCoord(lat)),
@@ -105,6 +113,7 @@ export function buildAirUrl(lat: number, lon: number): string {
   return `${AIR_URL}?${p.toString()}`;
 }
 
+/** Weather request over the same hours as `buildAirUrl`, so the two feeds line up. */
 export function buildWeatherUrl(lat: number, lon: number): string {
   const p = new URLSearchParams({
     latitude: String(roundCoord(lat)),
@@ -149,10 +158,14 @@ export function findNowIndex(hourly: readonly HourPoint[], currentTime: string):
   const exact = hourly.findIndex((h) => h.time === hourKey);
   if (exact >= 0) return exact;
   let best = 0;
-  for (let i = 0; i < hourly.length; i++) if (hourly[i]!.time <= currentTime) best = i;
+  for (const [i, h] of hourly.entries()) if (h.time <= currentTime) best = i;
   return best;
 }
 
+/**
+ * Live air and weather for a place, merged into one hourly series. Air data is required;
+ * weather is optional and its fields are null when that request fails.
+ */
 export async function fetchAirSnapshot(
   place: Place,
   opts: { fetchImpl?: Fetch; signal?: AbortSignal } = {},
@@ -193,12 +206,14 @@ export async function fetchAirSnapshot(
   };
 }
 
+/** A city search hit. `region` is the state and country, for telling same-named places apart. */
 export interface GeoResult extends Place {
   id: number;
   name: string;
   region: string;
 }
 
+/** Up to eight places matching `query`; queries shorter than two characters return none. */
 export async function searchPlaces(
   query: string,
   opts: { fetchImpl?: Fetch; signal?: AbortSignal } = {},

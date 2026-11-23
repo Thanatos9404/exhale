@@ -1,3 +1,4 @@
+import { defined } from '../assert.js';
 import type { AqiStandard, HourPoint, Pollutant } from './types.js';
 
 /**
@@ -7,6 +8,7 @@ import type { AqiStandard, HourPoint, Pollutant } from './types.js';
  * Each sub-index is a piecewise-linear interpolation; the overall AQI is the worst sub-index.
  */
 
+/** One breakpoint row: concentrations [clo, chi] map linearly onto index values [ilo, ihi]. */
 interface Band {
   /** Concentration range (µg/m³ unless noted). */
   clo: number;
@@ -102,9 +104,10 @@ export function subIndex(concentration: number, table: readonly Band[]): number 
     }
   }
   // Beyond the last breakpoint: the scale tops out.
-  return table[table.length - 1]!.ihi;
+  return table.at(-1)?.ihi ?? 0;
 }
 
+/** Averaged concentrations to score, already over each standard's averaging period. */
 export interface PollutantAverages {
   /** 24 h mean, µg/m³. */
   pm25?: number | null;
@@ -116,12 +119,14 @@ export interface PollutantAverages {
   o3?: number | null;
 }
 
+/** Overall AQI, the pollutant that set it, and every sub-index that could be scored. */
 export interface AqiResult {
   aqi: number;
   dominant: Pollutant;
   subIndices: Partial<Record<Pollutant, number>>;
 }
 
+/** AQI from averaged concentrations: the worst sub-index wins; missing values are skipped. */
 export function computeAqi(avg: PollutantAverages, standard: AqiStandard): AqiResult {
   const tables = standard === 'us' ? US_TABLES : IN_TABLES;
   const toUnits = (p: Pollutant, v: number) => {
@@ -147,8 +152,10 @@ export function computeAqi(avg: PollutantAverages, standard: AqiStandard): AqiRe
   return { aqi, dominant, subIndices };
 }
 
+/** Category rank, 0 (good) to 5 (hazardous or severe), shared by both standards for colouring. */
 export type AqiLevel = 0 | 1 | 2 | 3 | 4 | 5;
 
+/** A named AQI band in one standard. */
 export interface AqiCategory {
   level: AqiLevel;
   label: string;
@@ -156,6 +163,7 @@ export interface AqiCategory {
   advice: string;
 }
 
+/** US EPA bands, keyed by the highest AQI in each. */
 const US_CATEGORIES: readonly [number, AqiCategory][] = [
   [50, { level: 0, label: 'Good', advice: 'Air is clean. Enjoy time outside.' }],
   [
@@ -188,6 +196,7 @@ const US_CATEGORIES: readonly [number, AqiCategory][] = [
   ],
 ];
 
+/** India NAQI (CPCB) bands, keyed by the highest AQI in each. */
 const IN_CATEGORIES: readonly [number, AqiCategory][] = [
   [50, { level: 0, label: 'Good', advice: 'Minimal impact.' }],
   [
@@ -217,10 +226,12 @@ const IN_CATEGORIES: readonly [number, AqiCategory][] = [
   ],
 ];
 
+/** Category, label and public advice for an AQI value in the given standard. */
 export function aqiCategory(aqi: number, standard: AqiStandard): AqiCategory {
   const list = standard === 'us' ? US_CATEGORIES : IN_CATEGORIES;
   for (const [max, cat] of list) if (aqi <= max) return cat;
-  return list[list.length - 1]![1];
+  // Only NaN gets past the Infinity bound; report it as the top of the scale.
+  return defined(list.at(-1), 'AQI category table')[1];
 }
 
 /** Mean of the finite values in `values[from..to]` (inclusive bounds clamped to the array). */
@@ -274,6 +285,7 @@ export function hourlyAqi(
   return computeAqi({ pm25: h.pm25, pm10: h.pm10, no2: h.no2, o3: h.o3 }, standard);
 }
 
+/** Display names with proper chemical subscripts. */
 export const POLLUTANT_LABEL: Record<Pollutant, string> = {
   pm25: 'PM2.5',
   pm10: 'PM10',

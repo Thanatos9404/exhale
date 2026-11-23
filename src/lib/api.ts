@@ -4,6 +4,7 @@ import type { ChatMessage, HealthResponse, PlanResponse } from './apiTypes';
 
 /** Browser client for Exhale's own server functions. */
 
+/** A failed request to Exhale's API, with the server's message and HTTP status. */
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -25,12 +26,14 @@ async function failure(res: Response): Promise<ApiError> {
   return new ApiError(message, res.status);
 }
 
+/** The place as sent to the server: the label is reduced to the characters the server accepts. */
 const placeBody = (p: Place) => ({
   lat: p.lat,
   lon: p.lon,
   label: p.label.replace(/[^\p{L}\p{N} .,'()&/-]/gu, '').slice(0, 80) || 'My place',
 });
 
+/** Asks the server for a plan for this place and household, with AI wording when available. */
 export async function requestPlan(
   place: Place,
   household: Household,
@@ -46,6 +49,7 @@ export async function requestPlan(
   return (await res.json()) as PlanResponse;
 }
 
+/** Server status and the configured AI providers. */
 export async function getHealth(signal?: AbortSignal): Promise<HealthResponse> {
   const res = await fetch('/api/health', { signal });
   if (!res.ok) throw await failure(res);

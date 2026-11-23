@@ -3,6 +3,7 @@ import type { PlanResult } from './planner/engine.js';
 
 /** Contracts shared by the browser and the server functions. */
 
+/** A short practical tip written by the model. */
 const tip = z.object({
   title: z.string().min(1).max(90),
   detail: z.string().min(1).max(300),
@@ -19,9 +20,12 @@ export const aiPlanSchema = z.object({
   familyNote: z.string().max(360).optional(),
 });
 
+/** The model's wording for a plan; ids in `items` refer to the engine's routine items. */
 export type AiPlan = z.infer<typeof aiPlanSchema>;
+/** One indoor hack or sustainable swap. */
 export type AiTip = z.infer<typeof tip>;
 
+/** POST /api/plan: the engine's plan plus the model's wording, or null when only rules ran. */
 export interface PlanResponse {
   plan: PlanResult;
   ai: AiPlan | null;
@@ -29,6 +33,7 @@ export interface PlanResponse {
   model: string | null;
 }
 
+/** GET /api/health: whether the server is up and which AI providers are configured. */
 export interface HealthResponse {
   ok: boolean;
   ai: boolean;
@@ -37,6 +42,7 @@ export interface HealthResponse {
   providers?: string[];
 }
 
+/** One chat turn. 'model' is the assistant, following the Gemini role names. */
 export interface ChatMessage {
   role: 'user' | 'model';
   text: string;

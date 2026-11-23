@@ -14,16 +14,22 @@
  * as approximations in the UI and README.
  */
 
+/** How airtight the home is with windows shut. */
 export type Ventilation = 'sealed' | 'normal' | 'leaky';
+/** Purifier size class; see `PURIFIER_CADR`. */
 export type Purifier = 'none' | 'small' | 'medium' | 'large' | 'diy';
 
 /** Air changes per hour with windows shut. */
 export const AIR_EXCHANGE: Record<Ventilation, number> = { sealed: 0.3, normal: 0.7, leaky: 1.5 };
 /** Air changes per hour with windows wide open. */
 export const WINDOWS_OPEN_ACH = 6;
+/** PM2.5 settling onto indoor surfaces, 1/h. */
 export const DEPOSITION_RATE = 0.2;
+/** Share of outdoor PM2.5 that gets through a closed building envelope. */
 export const PENETRATION_CLOSED = 0.8;
+/** Share of outdoor PM2.5 that gets in through open windows. */
 export const PENETRATION_OPEN = 1;
+/** Room height used to turn floor area into volume, metres. */
 export const CEILING_HEIGHT_M = 2.8;
 
 /** m³/h. "diy" is a box fan with four MERV-13 filters (Corsi-Rosenthal box), conservatively rated. */
@@ -48,7 +54,9 @@ export const SOURCE_RATE = {
 /** Share of cooking emissions a working kitchen hood removes at source. */
 export const EXHAUST_CAPTURE = 0.6;
 
+/** One room for the mass balance above. */
 export interface RoomInput {
+  /** µg/m³. */
   outdoorPm25: number;
   /** Floor area in m². */
   areaM2: number;
@@ -59,7 +67,9 @@ export interface RoomInput {
   sourceUgPerHour?: number;
 }
 
+/** Steady-state result for a room. */
 export interface RoomResult {
+  /** µg/m³. */
   indoorPm25: number;
   /** Indoor/outdoor ratio. Above 1 means the home is dirtier than the street. */
   ratio: number;
@@ -67,9 +77,11 @@ export interface RoomResult {
   timeConstantMin: number;
   /** Clean-air changes per hour delivered by the purifier alone. */
   purifierAch: number;
+  /** Room volume, m³ (area at least 5 m² times ceiling height). */
   volumeM3: number;
 }
 
+/** Steady-state indoor PM2.5 for one room, from the single-zone mass balance above. */
 export function simulateRoom(input: RoomInput): RoomResult {
   const volume = Math.max(5, input.areaM2) * CEILING_HEIGHT_M;
   const a = input.windowsOpen ? WINDOWS_OPEN_ACH : AIR_EXCHANGE[input.ventilation];

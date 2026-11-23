@@ -13,10 +13,15 @@ const safeText = (max: number) =>
     // Plain words only: blocks markup and prompt-delimiter tricks in free-text fields.
     .regex(/^[\p{L}\p{N} .,'()&-]*$/u, 'Use letters, numbers and basic punctuation only');
 
+/** Age bands with distinct breathing rates and sensitivity (see science/exposure). */
 export const ageGroupSchema = z.enum(['child', 'teen', 'adult', 'senior']);
+/** Health conditions that lower a person's outdoor-effort PM2.5 limit. */
 export const conditionSchema = z.enum(['asthma', 'copd', 'heart', 'pregnancy']);
+/** Usual exercise; 'none' skips exercise advice for that member. */
 export const exerciseSchema = z.enum(['none', 'walk', 'run', 'cycle', 'yoga']);
+/** Where a member spends the working day when they are not the commuter. */
 export const daytimeSchema = z.enum(['home', 'office', 'school']);
+/** Commute modes; must match `CommuteMode` in science/commute. */
 export const commuteModeSchema = z.enum([
   'wfh',
   'walk',
@@ -28,8 +33,10 @@ export const commuteModeSchema = z.enum([
   'car',
   'ev',
 ]);
+/** Local hour of day, 0 to 23. */
 const hour = z.number().int().min(0).max(23);
 
+/** One person in the household. `id` is a short slug; 'you' marks the profile owner. */
 export const memberSchema = z.object({
   id: z.string().regex(/^[a-z0-9-]{1,24}$/),
   name: safeText(32).min(1),
@@ -41,6 +48,10 @@ export const memberSchema = z.object({
   exerciseMinutes: z.number().int().min(0).max(240).default(45),
 });
 
+/**
+ * The whole profile: who lives there, the one modelled commute, and the home. Areas are m²,
+ * distances km, hours local 0 to 23.
+ */
 export const householdSchema = z.object({
   version: z.literal(1).default(1),
   name: safeText(40).min(1).default('My household'),
@@ -70,9 +81,13 @@ export const householdSchema = z.object({
   }),
 });
 
+/** A validated household member. */
 export type Member = z.infer<typeof memberSchema>;
+/** A validated household profile. */
 export type Household = z.infer<typeof householdSchema>;
+/** Where a member spends the working day. */
 export type Daytime = z.infer<typeof daytimeSchema>;
+/** A member's usual exercise. */
 export type Exercise = z.infer<typeof exerciseSchema>;
 
 /** A realistic starting household so the dashboard is useful before anyone edits it. */
@@ -141,7 +156,10 @@ export function parseHousehold(input: unknown): Household | null {
   const r = householdSchema.safeParse(input);
   if (!r.success) return null;
   const h = r.data;
-  // Keep the commute pointing at a real member.
-  if (!h.members.some((m) => m.id === h.commute.memberId)) h.commute.memberId = h.members[0]!.id;
+  // Keep the commute pointing at a real member. The schema guarantees at least one.
+  const [first] = h.members;
+  if (first && !h.members.some((m) => m.id === h.commute.memberId)) {
+    h.commute.memberId = first.id;
+  }
   return h;
 }

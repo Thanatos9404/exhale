@@ -12,15 +12,21 @@ import {
  * listed as assumptions in the README.
  */
 
+/** How the commuter travels; 'wfh' means no commute. */
 export type CommuteMode =
   'wfh' | 'walk' | 'cycle' | 'metro' | 'bus' | 'auto' | 'twoWheeler' | 'car' | 'ev';
 
+/** Travel mode, excluding working from home. */
+export type TravelMode = Exclude<CommuteMode, 'wfh'>;
+
+/** Emission, exposure and practicality figures for one travel mode. */
 export interface ModeSpec {
   label: string;
   /** kg CO2e per passenger-km. */
   co2PerKm: number;
   /** In-transit PM2.5 relative to the ambient reading. */
   exposureFactor: number;
+  /** Breathing-rate activity level while travelling. */
   activity: Activity;
   /** Typical door-to-door speed in a congested Indian city, km/h. */
   speedKmh: number;
@@ -30,7 +36,8 @@ export interface ModeSpec {
   maxKm: number;
 }
 
-export const MODES: Record<Exclude<CommuteMode, 'wfh'>, ModeSpec> = {
+/** Figures for every travel mode, in the order `rankModes` considers them. */
+export const MODES: Record<TravelMode, ModeSpec> = {
   walk: {
     label: 'Walk',
     co2PerKm: 0,
@@ -105,33 +112,57 @@ export const MODES: Record<Exclude<CommuteMode, 'wfh'>, ModeSpec> = {
   },
 };
 
+/** Display name of every commute mode, working from home included. */
 export const MODE_LABEL: Record<CommuteMode, string> = {
   wfh: 'Work from home',
-  ...Object.fromEntries(Object.entries(MODES).map(([k, v]) => [k, v.label])),
-} as Record<CommuteMode, string>;
+  walk: MODES.walk.label,
+  cycle: MODES.cycle.label,
+  metro: MODES.metro.label,
+  bus: MODES.bus.label,
+  auto: MODES.auto.label,
+  twoWheeler: MODES.twoWheeler.label,
+  car: MODES.car.label,
+  ev: MODES.ev.label,
+};
+
+/** True for a key of `MODES`, i.e. any commute mode except working from home. */
+export function isTravelMode(mode: string): mode is TravelMode {
+  return Object.hasOwn(MODES, mode);
+}
+
+/** Travel modes in `MODES` order. */
+const TRAVEL_MODES: readonly TravelMode[] = Object.keys(MODES).filter(isTravelMode);
 
 /** A well-fitted N95 cuts inhaled PM2.5 by roughly 70% in real-world use. */
 export const N95_FACTOR = 0.3;
 
+/** One trip to evaluate. */
 export interface TripInput {
-  mode: Exclude<CommuteMode, 'wfh'>;
+  mode: TravelMode;
   distanceKm: number;
   /** Ambient PM2.5 during the trip, µg/m³. */
   ambientPm25: number;
   ageGroup: AgeGroup;
+  /** Wears a sealed N95; only helps on modes open to street air. */
   n95: boolean;
 }
 
+/** Time, exposure and emissions for one trip, one way. */
 export interface TripResult {
-  mode: Exclude<CommuteMode, 'wfh'>;
+  mode: TravelMode;
+  /** Door-to-door minutes. */
   minutes: number;
   /** In-transit PM2.5 the traveller actually breathes, after any mask. */
   breathedPm25: number;
+  /** Inhaled PM2.5 over the trip, µg. */
   doseUg: number;
+  /** kg CO2e per passenger. */
   co2Kg: number;
+  /** Berkeley Earth cigarette equivalents of the trip. */
   cigarettes: number;
 }
 
+/** Minutes, inhaled dose and CO2e of a single trip. */
 export function tripExposure(input: TripInput): TripResult {
   const spec = MODES[input.mode];
   const km = Math.max(0, input.distanceKm);
@@ -149,7 +180,9 @@ export function tripExposure(input: TripInput): TripResult {
   };
 }
 
+/** A ranked alternative. */
 export interface CommuteOption extends TripResult {
+  /** Weighted dose, CO2 and time relative to the current mode; lower is better. */
   score: number;
 }
 
@@ -161,7 +194,7 @@ export function rankModes(current: TripInput): CommuteOption[] {
   const base = tripExposure(current);
   const maxMinutes = base.minutes * 1.6 + 15;
   const options: CommuteOption[] = [];
-  for (const mode of Object.keys(MODES) as (keyof typeof MODES)[]) {
+  for (const mode of TRAVEL_MODES) {
     if (current.distanceKm > MODES[mode].maxKm) continue;
     const r = tripExposure({ ...current, mode, n95: current.n95 || MODES[mode].open });
     if (r.minutes > maxMinutes && mode !== current.mode) continue;
