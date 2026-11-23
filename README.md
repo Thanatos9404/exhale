@@ -138,14 +138,27 @@ Without any key the app still works end to end: plans use the engine's own expla
 
 ## Testing
 
-`npm test` runs 100+ tests with Vitest:
+`npm test` runs 250+ tests with Vitest. Coverage of the engine, server and API is about 95% of statements and 90% of branches, enforced in CI with thresholds:
 
 - **Science:** AQI breakpoints for both standards, averaging, dose and cigarette maths, indoor mass balance, commute ranking, lid and clean-window detection.
 - **Planner:** decisions for different households (asthmatic child sent indoors, adult moved to a clean hour, habit kept when clean, WFH skips commute, upgrades separated, purifier and fuel cases), determinism, what-if selection, and that the plan never makes a day worse.
 - **Server and API:** rate limiter, body limits, error hiding, prompt guardrails, Gemini hedging, retries and key rotation, the Claude Haiku fallback (structured output, refusals, budget, streaming), validation with fake clients, streaming with grounding sources, offline answers, `/api/plan`, `/api/chat` and `/api/health` handlers including invalid input, injection attempts and 429s.
 - **UI:** chart keyboard reading, form primitives, routine rows, page flows (what-if toggles, purifier lowering indoor PM2.5, settings validation) and **axe-core accessibility checks** on the Overview, Settings and routine lists.
 
-CI (`.github/workflows/ci.yml`) runs typecheck, lint, tests and build on every push.
+CI (`.github/workflows/ci.yml`) runs Prettier, typecheck, strict lint, tests with coverage thresholds and a production build on every push.
+
+## Code quality
+
+- **TypeScript:** strict mode with `noUncheckedIndexedAccess`. The codebase has no `any`, no non-null assertions, no `@ts-ignore` and no `eslint-disable` comments. Guaranteed values go through `defined()` (`src/lib/assert.ts`), which fails loudly instead of hiding a bug.
+- **ESLint:**
+  - typescript-eslint `strictTypeChecked` and `stylisticTypeChecked`, with zero warnings allowed
+  - React Compiler hook rules and jsx-a11y
+  - every file under 300 lines, every function under complexity 20 and nesting depth 4
+- **Small modules:**
+  - The planner is split into a simulator plus one builder per kind of action (`src/lib/planner/actions/`).
+  - The Gemini client is split into candidates, breaker, hedged runner, JSON and stream (`server/gemini/`).
+  - Each page composes components from its own folder (`src/pages/settings/` and so on).
+- **Consistency:** Prettier, `.editorconfig`, `.nvmrc` and Dependabot are configured. See [CONTRIBUTING.md](CONTRIBUTING.md) for the standards and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the layers and data flow.
 
 ## Accessibility
 
@@ -169,7 +182,7 @@ CI (`.github/workflows/ci.yml`) runs typecheck, lint, tests and build on every p
 npm install
 cp .env.example .env.local   # add GEMINI_API_KEY (optional)
 npm run dev                  # app and /api on http://localhost:5173
-npm run check                # typecheck, lint, tests
+npm run check                # format, typecheck, lint, tests with coverage
 ```
 
 Deploy: import the repo in Vercel (framework: Vite) and set `GEMINI_API_KEY` as an environment variable. `vercel.json` adds the API functions, SPA routing and security headers.
@@ -177,12 +190,17 @@ Deploy: import the repo in Vercel (framework: Vite) and set `GEMINI_API_KEY` as 
 ## Project structure
 
 ```
-api/            Vercel Functions: plan, chat, health
-server/         Gemini client, prompts, validation, rate limiting, offline answers
-src/lib/        Air data client, AQI, exposure, indoor model, commute, meteorology, planner engine
-src/components/ UI kit, shell (header, tabs, command menu), charts, 3D scenes, diagrams
-src/pages/      Overview, Forecast, Routine, Impact, Indoor lab, Assistant, Settings
-src/state/      Household, place, theme and deployments (local, validated storage)
+api/                  Vercel Functions: plan, chat, health (thin handlers)
+server/               Prompts, validation, rate limiting, logging, Claude fallback, offline answers
+server/gemini/        Key x model candidates, circuit breaker, hedged runner, JSON plans, streaming chat
+src/lib/science/      Exposure, indoor mass balance, commute, meteorology (cited coefficients)
+src/lib/air/          Open-Meteo client, US EPA and India NAQI AQI
+src/lib/planner/      Scenario, simulator, totals, summary
+src/lib/planner/actions/  One builder per kind of recommendation, run from a registry
+src/components/       UI kit, shell (header, tabs, command menu), charts, 3D scenes, diagrams
+src/pages/            One entry per page, composed from src/pages/<page>/ components and hooks
+src/state/            Household, place, theme and deployments (local, validated storage)
+docs/ARCHITECTURE.md  Layers, data flow, planner pipeline, AI fallback chain
 ```
 
 ## Credits
