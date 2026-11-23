@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { createRateLimiter } from './rateLimit';
 import { HttpError, clientKey, errorResponse, readJson } from './http';
 import { buildChatContext, buildPlanPrompt, describeHousehold, PLAN_SYSTEM } from './prompts';
-import { generateJson, isRetryable, modelChain, setClient, streamText, type GenAiLike } from './gemini';
+import { generateJson, hedged, isRetryable, modelChain, setClient, streamText, type GenAiLike } from './gemini';
 import { fallbackAnswer } from './fallback';
 import { buildPlan } from '../src/lib/planner/engine';
 import { DEFAULT_HOUSEHOLD } from '../src/lib/profile/schema';
@@ -113,6 +113,23 @@ describe('gemini wrapper', () => {
     const generateContent = vi.fn().mockResolvedValue({ text: '{"ok": "yes"}' });
     const client = { models: { generateContent, generateContentStream: vi.fn() } } as unknown as GenAiLike;
     await expect(generateJson({ system: 's', prompt: 'p', jsonSchema: {}, validate: schema, client })).resolves.toBeNull();
+  });
+
+  it('hedges a slow model with the next one and keeps the first valid answer', async () => {
+    const generateContent = vi.fn((req: { model: string; config: { abortSignal: AbortSignal } }) =>
+      req.model === modelChain()[0]
+        ? new Promise((_, reject) => req.config.abortSignal.addEventListener('abort', () => reject(new Error('aborted'))))
+        : Promise.resolve({ text: '{"ok": true}' }),
+    );
+    const client = { models: { generateContent, generateContentStream: vi.fn() } } as unknown as GenAiLike;
+    const r = await generateJson({ system: 's', prompt: 'p', jsonSchema: {}, validate: schema, client, hedgeAfterMs: 20 });
+    expect(r?.model).toBe(modelChain()[1]);
+    expect(r?.data).toEqual({ ok: true });
+  });
+
+  it('gives up cleanly when every model fails', async () => {
+    const r = await hedged(['a', 'b'], () => Promise.reject(new Error('503')), { hedgeAfterMs: 5, deadlineMs: 1_000, perAttemptMs: 500 });
+    expect(r).toBeNull();
   });
 
   it('classifies retryable errors', () => {

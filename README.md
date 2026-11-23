@@ -119,7 +119,8 @@ flowchart LR
 | `api/plan.ts` | `generateContent` with `responseJsonSchema` (structured output) | Headline, summary, per-action "why", indoor hacks, sustainable swaps, a note for the most sensitive person |
 | `api/chat.ts` | `generateContentStream` | Streaming assistant grounded in the live plan and household |
 | `api/chat.ts` | Google Search grounding (`tools: [{ googleSearch: {} }]`) | Current local advisories (for example GRAP stages), with cited sources |
-| `server/gemini.ts` | Model fallback chain with a circuit breaker | `gemini-3.6-flash` first, then lighter models when one is overloaded; per-model timeouts and an overall deadline |
+| `server/gemini.ts` | Hedged requests across a model chain, with a circuit breaker | `gemini-3.6-flash` first; if it has not answered in 7 s a Flash-Lite model races it and the first valid answer wins. Overloaded models cool down for 3 min; per-attempt timeouts and an overall deadline fit a serverless function |
+| All calls | `thinkingLevel: low` | The engine already did the reasoning, so light thinking halves latency |
 
 Without a key the app still works end to end: plans use the engine's own explanations and chat answers come from an offline responder built on the plan.
 

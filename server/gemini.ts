@@ -13,6 +13,7 @@ import type { ZodType } from 'zod';
 export const DEFAULT_MODELS = ['gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-flash-latest'] as const;
 const PER_MODEL_TIMEOUT_MS = 12_000;
 const FIRST_TOKEN_TIMEOUT_MS = 8_000;
+const HEDGE_AFTER_MS = 7_000;
 const OVERALL_DEADLINE_MS = 40_000;
 const COOLDOWN_MS = 3 * 60_000;
 /** The engine already did the reasoning; the model only explains, so light thinking halves latency. */
@@ -66,6 +67,53 @@ export interface JsonResult<T> {
   model: string;
 }
 
+/**
+ * Hedged fan-out: start the first model; if it has not answered within `hedgeAfterMs`, or it
+ * fails, start the next one too, and take whichever valid answer lands first. Losers are aborted.
+ * This keeps latency near the fastest healthy model when the preferred one is overloaded.
+ */
+export function hedged<R>(
+  models: readonly string[],
+  run: (model: string, signal: AbortSignal) => Promise<R>,
+  opts: { hedgeAfterMs: number; deadlineMs: number; perAttemptMs: number },
+): Promise<R | null> {
+  return new Promise((resolve) => {
+    const controllers: AbortController[] = [];
+    let next = 0;
+    let running = 0;
+    let settled = false;
+    let hedgeTimer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = setTimeout(() => finish(null), opts.deadlineMs);
+    function finish(value: R | null) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(hedgeTimer);
+      clearTimeout(deadline);
+      controllers.forEach((c) => c.abort());
+      resolve(value);
+    }
+    function launch() {
+      if (settled) return;
+      if (next >= models.length) {
+        if (running === 0) finish(null);
+        return;
+      }
+      const model = models[next++]!;
+      const ctrl = new AbortController();
+      controllers.push(ctrl);
+      running++;
+      clearTimeout(hedgeTimer);
+      hedgeTimer = setTimeout(launch, opts.hedgeAfterMs);
+      const signal = AbortSignal.any([ctrl.signal, AbortSignal.timeout(opts.perAttemptMs)]);
+      run(model, signal).then(finish, () => {
+        running--;
+        launch();
+      });
+    }
+    launch();
+  });
+}
+
 export async function generateJson<T>(opts: {
   system: string;
   prompt: string;
@@ -73,37 +121,37 @@ export async function generateJson<T>(opts: {
   validate: ZodType<T>;
   temperature?: number;
   client?: GenAiLike | null;
+  hedgeAfterMs?: number;
 }): Promise<JsonResult<T> | null> {
   const client = opts.client === undefined ? getClient() : opts.client;
   if (!client) return null;
-  const deadline = Date.now() + OVERALL_DEADLINE_MS;
-  for (const model of modelChain()) {
-    const left = deadline - Date.now();
-    if (left < 2_000) break;
+  const attempt = async (model: string, signal: AbortSignal): Promise<JsonResult<T>> => {
+    const config: GenerateContentConfig = {
+      systemInstruction: opts.system,
+      responseMimeType: 'application/json',
+      responseJsonSchema: opts.jsonSchema,
+      temperature: opts.temperature ?? 0.6,
+      maxOutputTokens: 4_096,
+      thinkingConfig: THINKING,
+      abortSignal: signal,
+    };
     try {
-      const config: GenerateContentConfig = {
-        systemInstruction: opts.system,
-        responseMimeType: 'application/json',
-        responseJsonSchema: opts.jsonSchema,
-        temperature: opts.temperature ?? 0.6,
-        maxOutputTokens: 4_096,
-        thinkingConfig: THINKING,
-        abortSignal: AbortSignal.timeout(Math.min(PER_MODEL_TIMEOUT_MS * 2, left)),
-      };
       const res = await client.models.generateContent({ model, contents: opts.prompt, config });
       const parsed = opts.validate.safeParse(JSON.parse(res.text ?? ''));
-      if (parsed.success) return { data: parsed.data, model };
-      console.warn(`[exhale] ${model} returned JSON that failed validation`);
+      if (!parsed.success) throw new SyntaxError(`${model} returned JSON that failed validation`);
+      return { data: parsed.data, model };
     } catch (err) {
-      if (err instanceof SyntaxError) continue;
-      if (!isRetryable(err)) {
-        console.warn(`[exhale] ${model} failed:`, err instanceof Error ? err.message.slice(0, 200) : 'unknown');
-        return null;
-      }
-      coolDown(model);
+      if (err instanceof SyntaxError) console.warn(`[exhale] ${err.message}`);
+      else if (isRetryable(err) && !signal.aborted) coolDown(model);
+      else if (!signal.aborted) console.warn(`[exhale] ${model} failed:`, err instanceof Error ? err.message.slice(0, 200) : 'unknown');
+      throw err;
     }
-  }
-  return null;
+  };
+  return hedged(modelChain(), attempt, {
+    hedgeAfterMs: opts.hedgeAfterMs ?? HEDGE_AFTER_MS,
+    deadlineMs: OVERALL_DEADLINE_MS,
+    perAttemptMs: PER_MODEL_TIMEOUT_MS * 2,
+  });
 }
 
 export interface StreamOptions {
