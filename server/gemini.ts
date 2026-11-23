@@ -14,7 +14,7 @@ export const DEFAULT_MODELS = ['gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gem
 const PER_MODEL_TIMEOUT_MS = 12_000;
 const FIRST_TOKEN_TIMEOUT_MS = 8_000;
 const HEDGE_AFTER_MS = 7_000;
-const OVERALL_DEADLINE_MS = 40_000;
+const OVERALL_DEADLINE_MS = 50_000;
 const COOLDOWN_MS = 3 * 60_000;
 /** The engine already did the reasoning; the model only explains, so light thinking halves latency. */
 const THINKING = { thinkingLevel: ThinkingLevel.LOW };
@@ -131,6 +131,8 @@ export async function generateJson<T>(opts: {
   temperature?: number;
   client?: GenAiLike | null;
   hedgeAfterMs?: number;
+  rounds?: number;
+  backoffMs?: number;
 }): Promise<JsonResult<T> | null> {
   const client = opts.client === undefined ? getClient() : opts.client;
   if (!client) return null;
@@ -163,8 +165,8 @@ export async function generateJson<T>(opts: {
     hedgeAfterMs: opts.hedgeAfterMs ?? HEDGE_AFTER_MS,
     deadlineMs: OVERALL_DEADLINE_MS,
     perAttemptMs: PER_MODEL_TIMEOUT_MS * 2,
-    rounds: 3,
-    backoffMs: 1_500,
+    rounds: opts.rounds ?? 6,
+    backoffMs: opts.backoffMs ?? 1_200,
   });
 }
 
@@ -184,8 +186,12 @@ export async function* streamText(opts: StreamOptions): AsyncGenerator<string, {
   const client = opts.client === undefined ? getClient() : opts.client;
   if (!client) return null;
   const deadline = Date.now() + OVERALL_DEADLINE_MS;
-  for (const model of modelChain()) {
+  const chain = modelChain();
+  // Up to three sweeps of the chain: overload spikes usually pass within seconds.
+  const attempts = [...chain, ...chain, ...chain];
+  for (const [i, model] of attempts.entries()) {
     if (deadline - Date.now() < 2_000) break;
+    if (i > 0 && i % chain.length === 0) await new Promise((res) => setTimeout(res, 1_200));
     let started = false;
     const ctrl = new AbortController();
     // Time-to-first-token budget; cleared once text starts flowing.

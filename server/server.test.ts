@@ -112,7 +112,7 @@ describe('gemini wrapper', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     const generateContent = vi.fn().mockResolvedValue({ text: '{"ok": "yes"}' });
     const client = { models: { generateContent, generateContentStream: vi.fn() } } as unknown as GenAiLike;
-    await expect(generateJson({ system: 's', prompt: 'p', jsonSchema: {}, validate: schema, client })).resolves.toBeNull();
+    await expect(generateJson({ system: 's', prompt: 'p', jsonSchema: {}, validate: schema, client, backoffMs: 5 })).resolves.toBeNull();
   });
 
   it('hedges a slow model with the next one and keeps the first valid answer', async () => {
