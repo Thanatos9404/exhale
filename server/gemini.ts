@@ -151,7 +151,10 @@ export async function generateJson<T>(opts: {
       return { data: parsed.data, model };
     } catch (err) {
       if (err instanceof SyntaxError) console.warn(`[exhale] ${err.message}`);
-      else if (isRetryable(err) && !signal.aborted) coolDown(model);
+      else if (isRetryable(err) && !signal.aborted) {
+        coolDown(model);
+        console.warn(`[exhale] ${model} unavailable:`, err instanceof Error ? err.message.slice(0, 120) : 'unknown');
+      }
       else if (!signal.aborted) console.warn(`[exhale] ${model} failed:`, err instanceof Error ? err.message.slice(0, 200) : 'unknown');
       throw err;
     }
