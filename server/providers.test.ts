@@ -21,10 +21,12 @@ const fakeClaude = (create: unknown, stream?: unknown) =>
 
 describe('Gemini key rotation', () => {
   it('reads keys from GEMINI_API_KEYS and GEMINI_API_KEY without duplicates', () => {
-    expect(
-      configuredKeys({ GEMINI_API_KEYS: ' a , b,a', GEMINI_API_KEY: 'c' } as NodeJS.ProcessEnv),
-    ).toEqual(['a', 'b', 'c']);
-    expect(configuredKeys({} as NodeJS.ProcessEnv)).toEqual([]);
+    expect(configuredKeys({ GEMINI_API_KEYS: ' a , b,a', GEMINI_API_KEY: 'c' })).toEqual([
+      'a',
+      'b',
+      'c',
+    ]);
+    expect(configuredKeys({})).toEqual([]);
   });
 
   it('tries the best model on every key before falling to the next model', () => {
@@ -144,7 +146,7 @@ describe('API provider fallback order', () => {
         generateContent: vi.fn().mockRejectedValue(new Error('503 high demand')),
         generateContentStream: vi.fn().mockRejectedValue(new Error('503 high demand')),
       },
-    } as unknown as GenAiLike);
+    });
   });
   afterEach(() => {
     setClient(undefined);

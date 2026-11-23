@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { createRateLimiter } from './rateLimit';
+import { evictOldest } from './boundedMap';
 import { HttpError, clientKey, errorResponse, readJson } from './http';
 import { buildChatContext, buildPlanPrompt, describeHousehold, PLAN_SYSTEM } from './prompts';
 import {
@@ -40,6 +41,21 @@ describe('rate limiter', () => {
   });
 });
 
+describe('bounded maps', () => {
+  it('evicts the oldest entries first, down to the limit', () => {
+    const map = new Map([
+      ['a', 1],
+      ['b', 2],
+      ['c', 3],
+      ['d', 4],
+    ]);
+    evictOldest(map, 2);
+    expect([...map.keys()]).toEqual(['c', 'd']);
+    evictOldest(map, 5);
+    expect(map.size).toBe(2);
+  });
+});
+
 describe('http helpers', () => {
   const req = (body: string, type = 'application/json') =>
     new Request('http://x/api', { method: 'POST', headers: { 'content-type': type }, body });
@@ -60,6 +76,13 @@ describe('http helpers', () => {
     const r = new Request('http://x', { headers: { 'x-forwarded-for': '1.2.3.4, 10.0.0.1' } });
     expect(clientKey(r)).toBe('1.2.3.4');
     expect(clientKey(new Request('http://x'))).toBe('local');
+  });
+
+  it('falls back to x-real-ip when the forwarded header is empty', () => {
+    const r = new Request('http://x', {
+      headers: { 'x-forwarded-for': ' ', 'x-real-ip': '5.6.7.8' },
+    });
+    expect(clientKey(r)).toBe('5.6.7.8');
   });
 
   it('hides internal error details', async () => {

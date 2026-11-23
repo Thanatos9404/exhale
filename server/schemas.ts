@@ -4,6 +4,7 @@ export { aiPlanSchema, type AiPlan } from '../src/lib/apiTypes.js';
 
 /** Request and AI-response contracts for the API. */
 
+/** Coordinates and a display label. The label allows only letters, digits and address punctuation. */
 export const placeSchema = z.object({
   lat: z.number().min(-90).max(90),
   lon: z.number().min(-180).max(180),
@@ -15,16 +16,19 @@ export const placeSchema = z.object({
     .regex(/^[\p{L}\p{N} .,'()&/-]*$/u),
 });
 
+/** Body of POST /api/plan. */
 export const planRequestSchema = z.object({
   place: placeSchema,
   household: householdSchema,
 });
 
+/** One chat turn; 2,000 characters keeps prompts small and the body under its size cap. */
 export const chatMessageSchema = z.object({
   role: z.enum(['user', 'model']),
   text: z.string().trim().min(1).max(2_000),
 });
 
+/** Body of POST /api/chat. Sixteen turns of history is plenty for context and bounds cost. */
 export const chatRequestSchema = z.object({
   place: placeSchema,
   household: householdSchema,

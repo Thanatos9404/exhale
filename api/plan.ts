@@ -10,9 +10,21 @@ import {
   planRequestSchema,
   type AiPlan,
 } from '../server/schemas.js';
-import { buildPlan } from '../src/lib/planner/engine.js';
+import { buildPlan, type PlanResult } from '../src/lib/planner/engine.js';
 import type { PlanResponse } from '../src/lib/apiTypes.js';
 import { parseHousehold } from '../src/lib/profile/schema.js';
+
+/** 12 plans per 5 minutes per client: each plan can fan out to several AI calls. */
+const limiter = createRateLimiter({ limit: 12, windowMs: 5 * 60_000 });
+
+/** A place plus a household profile fits well inside this. */
+const MAX_BODY_BYTES = 24_000;
+
+/** Keeps only explanations for items the engine produced, in engine order. */
+function mergeAi(plan: PlanResult, ai: AiPlan): AiPlan {
+  const ids = new Set(plan.items.map((i) => i.id));
+  return { ...ai, items: ai.items.filter((i) => ids.has(i.id)) };
+}
 
 /**
  * POST /api/plan
@@ -21,9 +33,6 @@ import { parseHousehold } from '../src/lib/profile/schema.js';
  * the plan and add tailored indoor hacks and sustainable swaps. Without a key (or on failure)
  * it returns the engine's plan alone so the app keeps working.
  */
-
-const limiter = createRateLimiter({ limit: 12, windowMs: 5 * 60_000 });
-
 export async function POST(request: Request): Promise<Response> {
   try {
     const rl = limiter.check(clientKey(request));
@@ -32,7 +41,7 @@ export async function POST(request: Request): Promise<Response> {
         'retry-after': String(rl.retryAfterSec),
       });
 
-    const body = planRequestSchema.safeParse(await readJson(request, 24_000));
+    const body = planRequestSchema.safeParse(await readJson(request, MAX_BODY_BYTES));
     if (!body.success) throw new HttpError(400, 'Invalid plan request');
     const household = parseHousehold(body.data.household);
     if (!household) throw new HttpError(400, 'Invalid household profile');
@@ -51,17 +60,10 @@ export async function POST(request: Request): Promise<Response> {
     // Gemini first (every key and model), then Claude Haiku, then the engine's own words.
     const ai = (await generateJson(aiRequest)) ?? (await claudeJson(aiRequest));
 
-    // Keep only explanations for items that actually exist, in engine order.
-    let aiPlan: AiPlan | null = null;
-    if (ai) {
-      const ids = new Set(plan.items.map((i) => i.id));
-      aiPlan = { ...ai.data, items: ai.data.items.filter((i) => ids.has(i.id)) };
-    }
-
     const response: PlanResponse = {
       plan,
-      ai: aiPlan,
-      source: !aiPlan ? 'rules' : ai?.model === CLAUDE_MODEL ? 'claude' : 'gemini',
+      ai: ai ? mergeAi(plan, ai.data) : null,
+      source: !ai ? 'rules' : ai.model === CLAUDE_MODEL ? 'claude' : 'gemini',
       model: ai?.model ?? null,
     };
     return json(response, 200, { 'x-ratelimit-remaining': String(rl.remaining) });
@@ -70,6 +72,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 }
 
+/** GET is not supported; answers 405 with an Allow header. */
 export function GET(): Response {
   return json({ error: 'Use POST' }, 405, { allow: 'POST' });
 }

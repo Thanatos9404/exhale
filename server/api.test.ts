@@ -3,6 +3,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeSnapshot } from '../src/test/fixtures';
 import { DEFAULT_HOUSEHOLD } from '../src/lib/profile/schema';
 import { setClient, type GenAiLike } from './gemini';
+import { setClaude } from './claude';
+
+/** Handler tests never reach real providers, whatever keys the shell happens to export. */
+function offline() {
+  setClient(null);
+  setClaude(null);
+}
+
+function restoreProviders() {
+  setClient(undefined);
+  setClaude(undefined);
+}
 
 vi.mock('./airCache.js', () => ({
   getAir: vi.fn(async () => makeSnapshot()),
@@ -24,8 +36,8 @@ const post = (body: unknown, headers: Record<string, string> = {}) =>
   });
 
 describe('POST /api/plan', () => {
-  beforeEach(() => setClient(null));
-  afterEach(() => setClient(undefined));
+  beforeEach(offline);
+  afterEach(restoreProviders);
 
   it('returns the engine plan when Gemini is not configured', async () => {
     const { POST } = await import('../api/plan');
@@ -56,7 +68,7 @@ describe('POST /api/plan', () => {
     const generateContent = vi.fn().mockResolvedValue({ text: JSON.stringify(ai) });
     setClient({
       models: { generateContent, generateContentStream: vi.fn() },
-    } as unknown as GenAiLike);
+    });
     const { POST } = await import('../api/plan');
     const res = await POST(post({ place, household: DEFAULT_HOUSEHOLD }));
     const body = await res.json();
@@ -95,8 +107,8 @@ describe('POST /api/plan', () => {
 });
 
 describe('POST /api/chat', () => {
-  beforeEach(() => setClient(null));
-  afterEach(() => setClient(undefined));
+  beforeEach(offline);
+  afterEach(restoreProviders);
 
   it('streams an offline answer grounded in the plan without a key', async () => {
     const { POST } = await import('../api/chat');
@@ -119,7 +131,7 @@ describe('POST /api/chat', () => {
     const generateContentStream = vi.fn().mockResolvedValue(chunks());
     setClient({
       models: { generateContent: vi.fn(), generateContentStream },
-    } as unknown as GenAiLike);
+    });
     const { POST } = await import('../api/chat');
     const res = await POST(
       post({
@@ -168,7 +180,7 @@ describe('POST /api/chat', () => {
 });
 
 describe('GET /api/health', () => {
-  afterEach(() => setClient(undefined));
+  afterEach(restoreProviders);
   it('reports whether AI is available without leaking the key', async () => {
     setClient(null);
     const { GET } = await import('../api/health');

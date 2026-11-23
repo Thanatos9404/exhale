@@ -1,7 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { ZodType } from 'zod';
-import { createRateLimiter } from './rateLimit.js';
 import type { JsonResult } from './gemini.js';
+import * as log from './log.js';
+import { createRateLimiter } from './rateLimit.js';
 
 /**
  * Claude Haiku as the second provider. It runs only when every Gemini key and model has failed,
@@ -9,6 +10,7 @@ import type { JsonResult } from './gemini.js';
  * keeps a burst of traffic from running up the bill.
  */
 
+/** Haiku keeps the fallback fast and cheap. */
 export const CLAUDE_MODEL = 'claude-haiku-5-5';
 
 /** Minimal surface we use, so tests can pass a fake client. */
@@ -20,8 +22,13 @@ export interface ClaudeLike {
 }
 
 let cached: ClaudeLike | null | undefined;
+/** At most 20 Claude calls per minute per instance, whatever the traffic, to cap spend. */
 const budget = createRateLimiter({ limit: 20, windowMs: 60_000 });
 
+/**
+ * The Claude client, or null when ANTHROPIC_API_KEY is unset. One SDK retry and a 30 s request
+ * timeout bound how long a slow fallback can hold the request.
+ */
 export function getClaude(): ClaudeLike | null {
   if (cached !== undefined) return cached;
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
@@ -50,10 +57,14 @@ export function strictSchema(schema: unknown): Record<string, unknown> {
 
 function withinBudget(): boolean {
   const ok = budget.check('claude').ok;
-  if (!ok) console.warn('[exhale] Claude fallback budget reached for this minute');
+  if (!ok) log.warn('Claude fallback budget reached for this minute');
   return ok;
 }
 
+/**
+ * Asks Haiku for JSON that matches `jsonSchema` and passes `validate`. Returns null on a refusal,
+ * invalid JSON, an API error or an exhausted budget, so the caller falls back to the engine.
+ */
 export async function claudeJson<T>(opts: {
   system: string;
   prompt: string;
@@ -78,29 +89,33 @@ export async function claudeJson<T>(opts: {
     const text = res.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
     const parsed = opts.validate.safeParse(JSON.parse(text));
     if (!parsed.success) {
-      console.warn('[exhale] Claude returned JSON that failed validation');
+      log.warn('Claude returned JSON that failed validation');
       return null;
     }
     return { data: parsed.data, model: CLAUDE_MODEL };
   } catch (err) {
-    if (err instanceof Anthropic.RateLimitError) console.warn('[exhale] Claude rate limited');
-    else if (err instanceof Anthropic.APIError)
-      console.warn(`[exhale] Claude API error ${err.status}`);
-    else
-      console.warn(
-        '[exhale] Claude call failed:',
-        err instanceof Error ? err.message.slice(0, 160) : 'unknown',
-      );
+    reportFailure(err);
     return null;
   }
 }
 
+/** Logs a failed JSON call by kind; SDK errors are reduced to their status code. */
+function reportFailure(err: unknown): void {
+  if (err instanceof Anthropic.RateLimitError) log.warn('Claude rate limited');
+  else if (err instanceof Anthropic.APIError) log.warn(`Claude API error ${err.status}`);
+  else log.warn('Claude call failed:', log.errorMessage(err, 160));
+}
+
+/** One chat message in Anthropic's role naming. */
 export interface ChatTurn {
   role: 'user' | 'assistant';
   content: string;
 }
 
-/** Streams Claude's answer as text deltas. Yields nothing if Claude is unavailable. */
+/**
+ * Streams Claude's answer as text deltas. Yields nothing if Claude is unavailable or over budget.
+ * Returns whether any text was sent; a stream that breaks midway ends with a short note.
+ */
 export async function* claudeStream(opts: {
   system: string;
   messages: ChatTurn[];
@@ -125,8 +140,8 @@ export async function* claudeStream(opts: {
     }
     return started;
   } catch (err) {
-    console.warn(
-      '[exhale] Claude stream failed:',
+    log.warn(
+      'Claude stream failed:',
       err instanceof Anthropic.APIError ? `status ${err.status}` : 'unknown',
     );
     if (started) yield '\n\n_The answer was cut short. Please ask again._';
