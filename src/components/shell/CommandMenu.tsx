@@ -90,6 +90,8 @@ function CommandDialog({
   const { deploy } = useDeployments();
   const [results, setResults] = useState<GeoResult[]>([]);
   const [searching, setSearching] = useState(false);
+  /** The query whose search has finished, so "no match" never flashes while typing. */
+  const [searched, setSearched] = useState('');
 
   // Debounced, abortable city search.
   useEffect(() => {
@@ -104,7 +106,10 @@ function CommandDialog({
       searchPlaces(q, { signal: ctrl.signal })
         .then(setResults)
         .catch(() => setResults([]))
-        .finally(() => setSearching(false));
+        .finally(() => {
+          setSearching(false);
+          if (!ctrl.signal.aborted) setSearched(q);
+        });
     }, 250);
     return () => {
       clearTimeout(t);
@@ -179,6 +184,11 @@ function CommandDialog({
             <LocateFixed size={16} aria-hidden="true" className="text-muted" />
             Use my current location
           </Command.Item>
+          {query.trim().length >= 2 && !searching && searched === query.trim() && results.length === 0 && (
+            <div role="status" className="px-3 py-2 text-[13px] text-muted">
+              No places match “{query.trim()}”. Check the spelling or try a nearby city.
+            </div>
+          )}
           {results.map((r) => (
             <Command.Item
               key={r.id}

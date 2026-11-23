@@ -81,3 +81,14 @@ describe('Settings page', () => {
     expect(await axeViolations(container)).toEqual([]);
   });
 });
+
+describe('Command menu', () => {
+  it('says so when no place matches the search', async () => {
+    const { default: Overview } = await import('./Overview');
+    renderApp(<Overview />);
+    await screen.findByText(/air can only mix/);
+    await userEvent.keyboard('{Control>}k{/Control}');
+    await userEvent.type(await screen.findByPlaceholderText(/Search a city/), 'qqzzxx');
+    expect(await screen.findByText(/No places match “qqzzxx”/)).toBeInTheDocument();
+  });
+});
