@@ -1,0 +1,18 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      react:
+        patterns: ['react', 'react-dom', '@types/react*']
+      three:
+        patterns: ['three', '@types/three', '@react-three/*']
+      lint:
+        patterns: ['eslint*', '@eslint/*', 'typescript-eslint', 'prettier']
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

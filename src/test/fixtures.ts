@@ -72,3 +72,52 @@ export function makeSnapshot(overrides: Partial<AirSnapshot> = {}): AirSnapshot 
     ...overrides,
   };
 }
+
+/**
+ * The raw Open-Meteo air-quality and forecast responses that `fetchAirSnapshot` merges back into
+ * `snap` (apart from `fetchedAt`, which is the fetch time). Lets client and cache tests round-trip.
+ */
+export function openMeteoPayloads(snap: AirSnapshot = makeSnapshot()) {
+  const { current: c, hourly: h } = snap;
+  const time = h.map((p) => p.time);
+  const col = (pick: (p: HourPoint) => number | null) => h.map(pick);
+  return {
+    air: {
+      utc_offset_seconds: snap.utcOffsetSeconds,
+      timezone: snap.place.timezone ?? 'GMT',
+      current: {
+        time: c.time,
+        pm2_5: c.pm25,
+        pm10: c.pm10,
+        nitrogen_dioxide: c.no2,
+        ozone: c.o3,
+        sulphur_dioxide: c.so2,
+        carbon_monoxide: c.co,
+      },
+      hourly: {
+        time,
+        pm2_5: col((p) => p.pm25),
+        pm10: col((p) => p.pm10),
+        nitrogen_dioxide: col((p) => p.no2),
+        ozone: col((p) => p.o3),
+      },
+    },
+    weather: {
+      current: {
+        time: c.time,
+        temperature_2m: c.temp,
+        relative_humidity_2m: c.rh,
+        wind_speed_10m: c.wind,
+        wind_direction_10m: c.windDir,
+        is_day: c.isDay ? 1 : 0,
+      },
+      hourly: {
+        time,
+        temperature_2m: col((p) => p.temp),
+        wind_speed_10m: col((p) => p.wind),
+        boundary_layer_height: col((p) => p.blh),
+        relative_humidity_2m: col((p) => p.rh),
+      },
+    },
+  };
+}

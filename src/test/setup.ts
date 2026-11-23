@@ -12,7 +12,7 @@ afterEach(async () => {
 
 if (hasDom) {
   // jsdom lacks these browser APIs; components feature-detect but tests should not crash.
-  if (!window.matchMedia) {
+  if (!('matchMedia' in window)) {
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
       value: vi.fn().mockImplementation((query: string) => ({
@@ -36,7 +36,17 @@ if (hasDom) {
       return [];
     }
   }
-  globalThis.ResizeObserver ??= NoopObserver as unknown as typeof ResizeObserver;
-  globalThis.IntersectionObserver ??= NoopObserver as unknown as typeof IntersectionObserver;
-  window.HTMLElement.prototype.scrollIntoView ??= () => {};
+  const stubs: Record<string, unknown> = {
+    ResizeObserver: NoopObserver,
+    IntersectionObserver: NoopObserver,
+  };
+  for (const [name, value] of Object.entries(stubs)) {
+    if (!(name in globalThis)) Object.defineProperty(globalThis, name, { value, writable: true });
+  }
+  if (!('scrollIntoView' in HTMLElement.prototype)) {
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      value: vi.fn(),
+      writable: true,
+    });
+  }
 }
