@@ -1,6 +1,13 @@
 import { aqiCategory, aqiSeries, type AqiLevel } from '../air/aqi.js';
 import type { AirSnapshot, HourPoint, Pollutant } from '../air/types.js';
-import { MODES, MODE_LABEL, N95_FACTOR, rankModes, tripExposure, type CommuteMode } from '../science/commute.js';
+import {
+  MODES,
+  MODE_LABEL,
+  N95_FACTOR,
+  rankModes,
+  tripExposure,
+  type CommuteMode,
+} from '../science/commute.js';
 import {
   BREATHING_RATE,
   WHO_PM25_24H,
@@ -86,8 +93,21 @@ export interface PlanResult {
   placeLabel: string;
   generatedAt: string;
   horizon: { start: string; end: string };
-  risk: { aqi: number; level: AqiLevel; label: string; advice: string; dominant: Pollutant; standard: Household['standard'] };
-  current: { pm25: number | null; blh: number | null; wind: number | null; ventilationCoefficient: number | null; dispersion: Dispersion | null };
+  risk: {
+    aqi: number;
+    level: AqiLevel;
+    label: string;
+    advice: string;
+    dominant: Pollutant;
+    standard: Household['standard'];
+  };
+  current: {
+    pm25: number | null;
+    blh: number | null;
+    wind: number | null;
+    ventilationCoefficient: number | null;
+    dispersion: Dispersion | null;
+  };
   lid: { spans: { start: string; end: string; minBlh: number }[]; stagnantHours: number };
   cleanWindow: { start: string; end: string; pm25: number } | null;
   worstWindow: { start: string; end: string; pm25: number } | null;
@@ -158,8 +178,14 @@ const HEATING_HOURS = [19, 20, 21, 22];
 
 const isSleep = (hod: number) => hod >= 23 || hod < 7;
 
-function nextIndexOfHour(hourly: readonly HourPoint[], from: number, to: number, hod: number): number | null {
-  for (let i = from; i < Math.min(to, hourly.length); i++) if (hourOf(hourly[i]!.time) === hod) return i;
+function nextIndexOfHour(
+  hourly: readonly HourPoint[],
+  from: number,
+  to: number,
+  hod: number,
+): number | null {
+  for (let i = from; i < Math.min(to, hourly.length); i++)
+    if (hourOf(hourly[i]!.time) === hod) return i;
   return null;
 }
 
@@ -204,7 +230,8 @@ class Simulator {
   memberExposure(m: Member, s: Scenario): Exposure {
     const rates = BREATHING_RATE[m.ageGroup];
     const commute = this.hh.commute;
-    const isCommuter = commute.memberId === m.id && s.commuteMode !== 'wfh' && commute.distanceKm > 0;
+    const isCommuter =
+      commute.memberId === m.id && s.commuteMode !== 'wfh' && commute.distanceKm > 0;
     const trip = isCommuter
       ? tripExposure({
           mode: s.commuteMode as Exclude<CommuteMode, 'wfh'>,
@@ -309,7 +336,10 @@ function impactBetween(
   return {
     doseSavedUg: round(saved),
     exposureCutPct: baseTotal > 0 ? round((saved / baseTotal) * 100, 1) : 0,
-    cigarettesAvoided: round(cigarettesFromConcHours(Math.max(0, concSaved)) * Math.sign(concSaved), 2),
+    cigarettesAvoided: round(
+      cigarettesFromConcHours(Math.max(0, concSaved)) * Math.sign(concSaved),
+      2,
+    ),
     co2SavedKg: round(co2SavedKg, 2),
   };
 }
@@ -320,7 +350,11 @@ const span = (hourly: readonly HourPoint[], start: number, end: number) => ({
 });
 
 const cookingRateFor = (cooking: Household['home']['cooking']) =>
-  cooking === 'biomass' ? SOURCE_RATE.biomassStove : cooking === 'lpg' ? SOURCE_RATE.fryingGas : SOURCE_RATE.fryingGas * 0.7;
+  cooking === 'biomass'
+    ? SOURCE_RATE.biomassStove
+    : cooking === 'lpg'
+      ? SOURCE_RATE.fryingGas
+      : SOURCE_RATE.fryingGas * 0.7;
 
 const heatingRateFor = (heating: Household['home']['heating']) =>
   heating === 'wood' || heating === 'coal' ? 60_000 : heating === 'gas' ? 2_000 : 0;
@@ -332,7 +366,12 @@ export interface PlanOptions {
   only?: ReadonlySet<string>;
 }
 
-export function buildPlan(household: Household, air: AirSnapshot, now: Date = new Date(), options: PlanOptions = {}): PlanResult {
+export function buildPlan(
+  household: Household,
+  air: AirSnapshot,
+  now: Date = new Date(),
+  options: PlanOptions = {},
+): PlanResult {
   const { hourly, nowIndex } = air;
   const sim = new Simulator(hourly, nowIndex, household);
   const { from, to } = sim;
@@ -341,7 +380,8 @@ export function buildPlan(household: Household, air: AirSnapshot, now: Date = ne
 
   const habitExercise: Scenario['exercise'] = {};
   for (const m of members) {
-    habitExercise[m.id] = m.exercise === 'none' ? null : nextIndexOfHour(hourly, from, to, m.exerciseHour);
+    habitExercise[m.id] =
+      m.exercise === 'none' ? null : nextIndexOfHour(hourly, from, to, m.exerciseHour);
   }
 
   const baseline: Scenario = {
@@ -415,7 +455,10 @@ export function buildPlan(household: Household, air: AirSnapshot, now: Date = ne
           time: t.start,
           endTime: t.end,
           title: `Air out the house ${t.start} to ${t.end}, not at ${fmtHour(home.airingHour)}`,
-          change: { before: `Air out at ${fmtHour(home.airingHour)} · ${fmtPm(habitPm)} outside`, after: `Air out ${t.start} to ${t.end} · ${fmtPm(clean.meanPm25)} outside` },
+          change: {
+            before: `Air out at ${fmtHour(home.airingHour)} · ${fmtPm(habitPm)} outside`,
+            after: `Air out ${t.start} to ${t.end} · ${fmtPm(clean.meanPm25)} outside`,
+          },
           detail: `Outdoor PM2.5 is forecast at ${fmtPm(habitPm)} at ${fmtHour(home.airingHour)} but ${fmtPm(clean.meanPm25)} at ${t.start}, when the afternoon sun lifts the mixing layer. Same fresh air, far fewer particles.`,
           memberIds: everyone,
           impact: impactBetween(baseExp, next, everyone),
@@ -436,7 +479,11 @@ export function buildPlan(household: Household, air: AirSnapshot, now: Date = ne
     const habitPm = sim.ambient(habitIdx);
     const activity = EXERCISE_LABEL[m.exercise];
     const who = m.id === 'you' ? 'your' : `${m.name}'s`;
-    const reason = m.conditions.length ? ` (${m.conditions.join(', ')})` : m.ageGroup !== 'adult' ? ` (${m.ageGroup})` : '';
+    const reason = m.conditions.length
+      ? ` (${m.conditions.join(', ')})`
+      : m.ageGroup !== 'adult'
+        ? ` (${m.ageGroup})`
+        : '';
 
     if (habitPm <= limit && (!cleanDaylight || habitPm <= cleanDaylight.meanPm25 * 1.2)) {
       items.push({
@@ -465,7 +512,10 @@ export function buildPlan(household: Household, air: AirSnapshot, now: Date = ne
           time: t.start,
           endTime: null,
           title: `Move ${who} ${activity} from ${fmtHour(m.exerciseHour)} to ${t.start}`,
-          change: { before: `${m.name}: ${activity} outdoors at ${fmtHour(m.exerciseHour)} · ${fmtPm(habitPm)}`, after: `${m.name}: ${activity} outdoors at ${t.start} · ${fmtPm(cleanDaylight.meanPm25)}` },
+          change: {
+            before: `${m.name}: ${activity} outdoors at ${fmtHour(m.exerciseHour)} · ${fmtPm(habitPm)}`,
+            after: `${m.name}: ${activity} outdoors at ${t.start} · ${fmtPm(cleanDaylight.meanPm25)}`,
+          },
           detail: `${fmtHour(m.exerciseHour)} is forecast at ${fmtPm(habitPm)}, over ${who} limit of ${fmtPm(limit)}${reason}. ${t.start} is the cleanest daylight hour at ${fmtPm(cleanDaylight.meanPm25)}, and hard breathing multiplies whatever is in the air.`,
           memberIds: [m.id],
           impact: impactBetween(baseExp, next, [m.id]),
@@ -484,7 +534,10 @@ export function buildPlan(household: Household, air: AirSnapshot, now: Date = ne
           time: fmtHour(m.exerciseHour),
           endTime: null,
           title: `Take ${who} ${activity} indoors today`,
-          change: { before: `${m.name}: ${activity} outdoors at ${fmtHour(m.exerciseHour)} · ${fmtPm(habitPm)}`, after: `${m.name}: ${activity} indoors, windows shut` },
+          change: {
+            before: `${m.name}: ${activity} outdoors at ${fmtHour(m.exerciseHour)} · ${fmtPm(habitPm)}`,
+            after: `${m.name}: ${activity} indoors, windows shut`,
+          },
           detail: `No daylight hour gets under ${who} outdoor limit of ${fmtPm(limit)}${reason}; the best is ${best}. Indoors with windows shut cuts what each deep breath carries.`,
           memberIds: [m.id],
           impact: impactBetween(baseExp, next, [m.id]),
@@ -525,7 +578,10 @@ export function buildPlan(household: Household, air: AirSnapshot, now: Date = ne
           time: fmtHour(commute.departHour),
           endTime: null,
           title: `Swap the ${MODE_LABEL[commute.mode].toLowerCase()} for the ${MODE_LABEL[best.mode].toLowerCase()}${n95 && MODES[best.mode].open ? ' with an N95' : ''}`,
-          change: { before: `${MODE_LABEL[commute.mode]}, ${commute.distanceKm} km each way · ${round(base.co2Kg * 2, 2)} kg CO2e a day`, after: `${MODE_LABEL[best.mode]}${n95 && MODES[best.mode].open ? ' + N95' : ''} · ${round(best.co2Kg * 2, 2)} kg CO2e a day` },
+          change: {
+            before: `${MODE_LABEL[commute.mode]}, ${commute.distanceKm} km each way · ${round(base.co2Kg * 2, 2)} kg CO2e a day`,
+            after: `${MODE_LABEL[best.mode]}${n95 && MODES[best.mode].open ? ' + N95' : ''} · ${round(best.co2Kg * 2, 2)} kg CO2e a day`,
+          },
           detail: `For ${commute.distanceKm} km each way: ${base.minutes} to ${best.minutes} min, ${round(base.co2Kg * 2, 2)} to ${round(best.co2Kg * 2, 2)} kg CO2e a day. In-transit air goes from ${fmtPm(base.breathedPm25)} to ${fmtPm(best.breathedPm25)}.`,
           memberIds: [commuter.id],
           impact: impactBetween(baseExp, next, [commuter.id], co2Day),
@@ -546,7 +602,10 @@ export function buildPlan(household: Household, air: AirSnapshot, now: Date = ne
           time: fmtHour(commute.departHour),
           endTime: null,
           title: 'Wear a well-fitted N95 on the commute',
-          change: { before: `${MODE_LABEL[commute.mode]} without a mask`, after: `${MODE_LABEL[commute.mode]} with a sealed N95` },
+          change: {
+            before: `${MODE_LABEL[commute.mode]} without a mask`,
+            after: `${MODE_LABEL[commute.mode]} with a sealed N95`,
+          },
           detail: `The ${MODE_LABEL[commute.mode].toLowerCase()} is already the best option for this trip, but it is open to street air. A sealed N95 removes roughly 70% of the particles.`,
           memberIds: [commuter.id],
           impact: impactBetween(baseExp, next, [commuter.id]),
@@ -579,7 +638,10 @@ export function buildPlan(household: Household, air: AirSnapshot, now: Date = ne
             time: t,
             endTime: null,
             title: `Leave at ${t} instead of ${fmtHour(commute.departHour)}`,
-            change: { before: `Leave at ${fmtHour(commute.departHour)} · ${fmtPm(ambientTrip)} on the street`, after: `Leave at ${t} · ${fmtPm(bestPm)} on the street` },
+            change: {
+              before: `Leave at ${fmtHour(commute.departHour)} · ${fmtPm(ambientTrip)} on the street`,
+              after: `Leave at ${t} · ${fmtPm(bestPm)} on the street`,
+            },
             detail: `Your hours are flexible. Street PM2.5 drops from ${fmtPm(ambientTrip)} to ${fmtPm(bestPm)} by ${t} as the morning lid breaks up.`,
             memberIds: [commuter.id],
             impact: impactBetween(baseExp, next, [commuter.id]),
@@ -602,7 +664,10 @@ export function buildPlan(household: Household, air: AirSnapshot, now: Date = ne
         time: '22:00',
         endTime: null,
         title: 'Swap the mosquito coil for a net or plug-in repellent',
-        change: { before: 'Mosquito coil burning 22:00 to 06:00', after: 'Bed net or plug-in repellent' },
+        change: {
+          before: 'Mosquito coil burning 22:00 to 06:00',
+          after: 'Bed net or plug-in repellent',
+        },
         detail: `A burning coil adds about ${fmtPm(sourceIncrement(SOURCE_RATE.mosquitoCoil, home.ventilation, 'none', home.areaM2))} to the bedroom all night. One coil releases as much PM2.5 mass as 75 to 137 cigarettes (Liu et al., 2003).`,
         memberIds: everyone,
         impact: impactBetween(baseExp, next, everyone),
@@ -641,7 +706,8 @@ export function buildPlan(household: Household, air: AirSnapshot, now: Date = ne
         endTime: null,
         title: 'Smoke outside, never in a shut house',
         change: { before: 'Smoking indoors', after: 'Smoking outside only' },
-        detail: 'With windows closed for the smog, smoke has nowhere to go and everyone breathes it for hours.',
+        detail:
+          'With windows closed for the smog, smoke has nowhere to go and everyone breathes it for hours.',
         memberIds: everyone,
         impact: impactBetween(baseExp, next, everyone),
         freeAction: true,
@@ -659,7 +725,12 @@ export function buildPlan(household: Household, air: AirSnapshot, now: Date = ne
         status: 'caution',
         time: '20:00',
         endTime: null,
-        change: { before: 'Cooking with no extraction', after: home.kitchenExhaust ? 'Hood on high while cooking' : 'Lids on, kitchen window cracked, door shut' },
+        change: {
+          before: 'Cooking with no extraction',
+          after: home.kitchenExhaust
+            ? 'Hood on high while cooking'
+            : 'Lids on, kitchen window cracked, door shut',
+        },
         title: home.kitchenExhaust
           ? 'Run the kitchen exhaust from first flame to 10 min after'
           : 'Cook with lids on and crack only the kitchen window',
@@ -677,7 +748,13 @@ export function buildPlan(household: Household, air: AirSnapshot, now: Date = ne
   // --- 6. Filtration ------------------------------------------------------------------------
   if (home.purifier !== 'none') {
     const next = tryChange((s) => (s.purifier = home.purifier));
-    const room = simulateRoom({ outdoorPm25: sim.ambient(from), areaM2: home.areaM2, ventilation: home.ventilation, windowsOpen: false, purifier: home.purifier });
+    const room = simulateRoom({
+      outdoorPm25: sim.ambient(from),
+      areaM2: home.areaM2,
+      ventilation: home.ventilation,
+      windowsOpen: false,
+      purifier: home.purifier,
+    });
     accept(
       {
         id: 'purifier',
@@ -704,7 +781,8 @@ export function buildPlan(household: Household, air: AirSnapshot, now: Date = ne
       endTime: null,
       title: 'Build a box-fan filter for the bedroom',
       change: { before: 'No filtration', after: 'Box-fan filter running in the bedroom' },
-      detail: 'Tape four MERV-13 filters around a box fan (a Corsi-Rosenthal box). It moves roughly 550 m³ of filtered air an hour, comparable to a large purifier, for the cost of the filters.',
+      detail:
+        'Tape four MERV-13 filters around a box fan (a Corsi-Rosenthal box). It moves roughly 550 m³ of filtered air an hour, comparable to a large purifier, for the cost of the filters.',
       memberIds: everyone,
       impact: impactBetween(baseExp, next, everyone),
       freeAction: false,
@@ -721,8 +799,12 @@ export function buildPlan(household: Household, air: AirSnapshot, now: Date = ne
       time: '19:00',
       endTime: null,
       title: `Replace the ${home.heating} heater with an electric one or extra layers`,
-      change: { before: `${home.heating} heater indoors`, after: 'Electric heater or extra layers' },
-      detail: 'Solid-fuel heaters fill a sealed room with smoke and carbon monoxide, and their smoke joins the city-wide lid outside.',
+      change: {
+        before: `${home.heating} heater indoors`,
+        after: 'Electric heater or extra layers',
+      },
+      detail:
+        'Solid-fuel heaters fill a sealed room with smoke and carbon monoxide, and their smoke joins the city-wide lid outside.',
       memberIds: everyone,
       impact: impactBetween(baseExp, next, everyone),
       freeAction: false,
@@ -738,7 +820,8 @@ export function buildPlan(household: Household, air: AirSnapshot, now: Date = ne
       endTime: null,
       title: 'Move cooking from the chulha to LPG or induction',
       change: { before: 'Cooking on a chulha', after: 'Cooking on LPG or induction' },
-      detail: 'Wood and dung stoves are among the largest single sources of household PM2.5 in India.',
+      detail:
+        'Wood and dung stoves are among the largest single sources of household PM2.5 in India.',
       memberIds: everyone,
       impact: impactBetween(baseExp, next, everyone),
       freeAction: false,
@@ -764,7 +847,9 @@ export function buildPlan(household: Household, air: AirSnapshot, now: Date = ne
     };
   });
   const totalImpact = impactBetween(baseExp, optExp, everyone);
-  const co2Day = items.filter((i) => i.freeAction && (!options.only || options.only.has(i.id))).reduce((s, i) => s + i.impact.co2SavedKg, 0);
+  const co2Day = items
+    .filter((i) => i.freeAction && (!options.only || options.only.has(i.id)))
+    .reduce((s, i) => s + i.impact.co2SavedKg, 0);
   const workDays = commute.mode === 'wfh' ? 0 : commute.daysPerWeek;
 
   const series = aqiSeries(hourly, household.standard);
@@ -774,12 +859,17 @@ export function buildPlan(household: Household, air: AirSnapshot, now: Date = ne
   const order: Record<RoutineStatus, number> = { avoid: 0, go: 1, caution: 2 };
   items.sort((a, b) => {
     if (a.freeAction !== b.freeAction) return a.freeAction ? -1 : 1;
-    if (b.impact.doseSavedUg !== a.impact.doseSavedUg) return b.impact.doseSavedUg - a.impact.doseSavedUg;
+    if (b.impact.doseSavedUg !== a.impact.doseSavedUg)
+      return b.impact.doseSavedUg - a.impact.doseSavedUg;
     return order[a.status] - order[b.status];
   });
 
-  const cleanOut = clean ? { ...span(hourly, clean.start, clean.end), pm25: round(clean.meanPm25) } : null;
-  const worstOut = worst ? { ...span(hourly, worst.start, worst.end), pm25: round(worst.meanPm25) } : null;
+  const cleanOut = clean
+    ? { ...span(hourly, clean.start, clean.end), pm25: round(clean.meanPm25) }
+    : null;
+  const worstOut = worst
+    ? { ...span(hourly, worst.start, worst.end), pm25: round(worst.meanPm25) }
+    : null;
   const lidOut = lids.map((l) => ({ ...span(hourly, l.start, l.end), minBlh: round(l.minBlh) }));
 
   const headline =
@@ -791,7 +881,14 @@ export function buildPlan(household: Household, air: AirSnapshot, now: Date = ne
     placeLabel: air.place.label,
     generatedAt: now.toISOString(),
     horizon: span(hourly, from, to),
-    risk: { aqi: nowAqi.aqi, level: cat.level, label: cat.label, advice: cat.advice, dominant: nowAqi.dominant, standard: household.standard },
+    risk: {
+      aqi: nowAqi.aqi,
+      level: cat.level,
+      label: cat.label,
+      advice: cat.advice,
+      dominant: nowAqi.dominant,
+      standard: household.standard,
+    },
     current: {
       pm25: nowHour?.pm25 ?? null,
       blh: nowHour?.blh ?? null,
@@ -815,4 +912,3 @@ export function buildPlan(household: Household, air: AirSnapshot, now: Date = ne
     },
   };
 }
-

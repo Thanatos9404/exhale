@@ -19,7 +19,12 @@ function AiStatus() {
   if (health.isLoading) return null;
   const on = health.data?.ai === true;
   return (
-    <span className="hidden items-center gap-1.5 text-xs text-muted lg:inline-flex" title={on ? `Gemini: ${health.data?.model}` : 'Gemini key not configured; rules engine answers'}>
+    <span
+      className="hidden items-center gap-1.5 text-xs text-muted lg:inline-flex"
+      title={
+        on ? `Gemini: ${health.data?.model}` : 'Gemini key not configured; rules engine answers'
+      }
+    >
       <Dot className={on ? 'bg-green' : 'bg-amber'} />
       {on ? 'Gemini connected' : 'Rules mode'}
     </span>
@@ -52,9 +57,15 @@ export function Header() {
   return (
     <header className="bg-background">
       <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-1.5 px-4 md:px-6">
-        <Link href="/" aria-label="Exhale overview" className="mr-1 inline-flex items-center gap-2 rounded-md text-fg">
+        <Link
+          href="/"
+          aria-label="Exhale overview"
+          className="mr-1 inline-flex items-center gap-2 rounded-md text-fg"
+        >
           <Logo size={22} />
-          <span className="hidden text-[15px] font-semibold tracking-[-0.02em] sm:inline">Exhale</span>
+          <span className="hidden text-[15px] font-semibold tracking-[-0.02em] sm:inline">
+            Exhale
+          </span>
         </Link>
         <span className="hidden md:inline-flex">
           <Slash />
@@ -65,7 +76,9 @@ export function Header() {
         >
           <Avatar name={household.name} size={20} />
           <span className="max-w-[160px] truncate">{household.name}</span>
-          <Badge>{household.members.length} {household.members.length === 1 ? 'person' : 'people'}</Badge>
+          <Badge>
+            {household.members.length} {household.members.length === 1 ? 'person' : 'people'}
+          </Badge>
         </Link>
         <Slash />
         <button
@@ -120,10 +133,15 @@ export function Tabs() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const spring = reduced ? { duration: 0 } : { type: 'spring' as const, duration: 0.35, bounce: 0.12 };
+  const spring = reduced
+    ? { duration: 0 }
+    : { type: 'spring' as const, duration: 0.35, bounce: 0.12 };
 
   return (
-    <nav aria-label="Primary" className="sticky top-0 z-40 border-b border-line bg-background/85 backdrop-blur-md">
+    <nav
+      aria-label="Primary"
+      className="sticky top-0 z-40 border-b border-line bg-background/85 backdrop-blur-md"
+    >
       <div className="mx-auto flex h-[46px] max-w-[1400px] items-center px-2 md:px-4">
         <Link
           href="/"
@@ -136,7 +154,10 @@ export function Tabs() {
         >
           <Logo size={18} />
         </Link>
-        <ul className="scrollbar-none flex h-full items-stretch overflow-x-auto" onPointerLeave={() => setHovered(null)}>
+        <ul
+          className="scrollbar-none flex h-full items-stretch overflow-x-auto"
+          onPointerLeave={() => setHovered(null)}
+        >
           {ROUTES.map((r) => {
             const active = r.path === '/' ? location === '/' : location.startsWith(r.path);
             return (
@@ -191,13 +212,28 @@ export function Footer() {
           <span className="inline-flex items-center gap-2 font-medium text-fg">
             <Logo size={16} /> Exhale
           </span>
-          <a className="hover:text-fg" href={`${REPO_URL}#how-the-numbers-work`} target="_blank" rel="noreferrer">
+          <a
+            className="hover:text-fg"
+            href={`${REPO_URL}#how-the-numbers-work`}
+            target="_blank"
+            rel="noreferrer"
+          >
             Methodology
           </a>
-          <a className="inline-flex items-center gap-1 hover:text-fg" href={REPO_URL} target="_blank" rel="noreferrer">
+          <a
+            className="inline-flex items-center gap-1 hover:text-fg"
+            href={REPO_URL}
+            target="_blank"
+            rel="noreferrer"
+          >
             <GithubMark size={13} /> Source
           </a>
-          <a className="hover:text-fg" href="https://open-meteo.com/en/docs/air-quality-api" target="_blank" rel="noreferrer">
+          <a
+            className="hover:text-fg"
+            href="https://open-meteo.com/en/docs/air-quality-api"
+            target="_blank"
+            rel="noreferrer"
+          >
             Data: Open-Meteo, CAMS
           </a>
           <span>Guidance, not medical advice.</span>
@@ -213,7 +249,11 @@ export function Footer() {
             value={theme}
             onChange={setTheme}
             options={[
-              { value: 'system', label: <Monitor size={13} aria-hidden="true" />, title: 'System theme' },
+              {
+                value: 'system',
+                label: <Monitor size={13} aria-hidden="true" />,
+                title: 'System theme',
+              },
               { value: 'light', label: <Sun size={13} aria-hidden="true" />, title: 'Light theme' },
               { value: 'dark', label: <Moon size={13} aria-hidden="true" />, title: 'Dark theme' },
             ]}
@@ -226,14 +266,26 @@ export function Footer() {
 
 /* Page scaffold ---------------------------------------------------------------------------- */
 
-export function PageHeader({ title, description, actions }: { title: string; description?: ReactNode; actions?: ReactNode }) {
+export function PageHeader({
+  title,
+  description,
+  actions,
+}: {
+  title: string;
+  description?: ReactNode;
+  actions?: ReactNode;
+}) {
   return (
     <div className="flex flex-col gap-4 border-b border-line bg-background md:flex-row md:items-end md:justify-between">
       <div className="mx-auto w-full max-w-[1200px] px-4 pt-10 pb-8 md:px-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="min-w-0">
-            <h1 className="text-[32px] leading-[1.15] font-semibold tracking-[-0.035em] text-fg">{title}</h1>
-            {description && <p className="mt-2 max-w-[65ch] text-[15px] text-muted">{description}</p>}
+            <h1 className="text-[32px] leading-[1.15] font-semibold tracking-[-0.035em] text-fg">
+              {title}
+            </h1>
+            {description && (
+              <p className="mt-2 max-w-[65ch] text-[15px] text-muted">{description}</p>
+            )}
           </div>
           {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
         </div>
@@ -243,5 +295,9 @@ export function PageHeader({ title, description, actions }: { title: string; des
 }
 
 export function PageBody({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn('mx-auto w-full max-w-[1200px] px-4 pt-8 md:px-6', className)}>{children}</div>;
+  return (
+    <div className={cn('mx-auto w-full max-w-[1200px] px-4 pt-8 md:px-6', className)}>
+      {children}
+    </div>
+  );
 }

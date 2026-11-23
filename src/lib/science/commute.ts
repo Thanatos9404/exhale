@@ -1,4 +1,9 @@
-import { BREATHING_RATE, cigarettesFromConcHours, type Activity, type AgeGroup } from './exposure.js';
+import {
+  BREATHING_RATE,
+  cigarettesFromConcHours,
+  type Activity,
+  type AgeGroup,
+} from './exposure.js';
 
 /**
  * Commute modes with per-passenger emission and in-transit exposure factors.
@@ -8,15 +13,7 @@ import { BREATHING_RATE, cigarettesFromConcHours, type Activity, type AgeGroup }
  */
 
 export type CommuteMode =
-  | 'wfh'
-  | 'walk'
-  | 'cycle'
-  | 'metro'
-  | 'bus'
-  | 'auto'
-  | 'twoWheeler'
-  | 'car'
-  | 'ev';
+  'wfh' | 'walk' | 'cycle' | 'metro' | 'bus' | 'auto' | 'twoWheeler' | 'car' | 'ev';
 
 export interface ModeSpec {
   label: string;
@@ -34,14 +31,78 @@ export interface ModeSpec {
 }
 
 export const MODES: Record<Exclude<CommuteMode, 'wfh'>, ModeSpec> = {
-  walk: { label: 'Walk', co2PerKm: 0, exposureFactor: 1.25, activity: 'light', speedKmh: 4.8, open: true, maxKm: 3 },
-  cycle: { label: 'Cycle', co2PerKm: 0, exposureFactor: 1.3, activity: 'moderate', speedKmh: 14, open: true, maxKm: 12 },
-  metro: { label: 'Metro', co2PerKm: 0.031, exposureFactor: 0.7, activity: 'light', speedKmh: 28, open: true, maxKm: 60 },
-  bus: { label: 'Bus', co2PerKm: 0.035, exposureFactor: 1.1, activity: 'rest', speedKmh: 16, open: true, maxKm: 60 },
-  auto: { label: 'Auto-rickshaw', co2PerKm: 0.07, exposureFactor: 1.45, activity: 'rest', speedKmh: 22, open: true, maxKm: 20 },
-  twoWheeler: { label: 'Two-wheeler', co2PerKm: 0.055, exposureFactor: 1.4, activity: 'rest', speedKmh: 26, open: true, maxKm: 40 },
-  car: { label: 'Car (petrol)', co2PerKm: 0.17, exposureFactor: 0.65, activity: 'rest', speedKmh: 24, open: false, maxKm: 100 },
-  ev: { label: 'Electric car', co2PerKm: 0.085, exposureFactor: 0.65, activity: 'rest', speedKmh: 24, open: false, maxKm: 100 },
+  walk: {
+    label: 'Walk',
+    co2PerKm: 0,
+    exposureFactor: 1.25,
+    activity: 'light',
+    speedKmh: 4.8,
+    open: true,
+    maxKm: 3,
+  },
+  cycle: {
+    label: 'Cycle',
+    co2PerKm: 0,
+    exposureFactor: 1.3,
+    activity: 'moderate',
+    speedKmh: 14,
+    open: true,
+    maxKm: 12,
+  },
+  metro: {
+    label: 'Metro',
+    co2PerKm: 0.031,
+    exposureFactor: 0.7,
+    activity: 'light',
+    speedKmh: 28,
+    open: true,
+    maxKm: 60,
+  },
+  bus: {
+    label: 'Bus',
+    co2PerKm: 0.035,
+    exposureFactor: 1.1,
+    activity: 'rest',
+    speedKmh: 16,
+    open: true,
+    maxKm: 60,
+  },
+  auto: {
+    label: 'Auto-rickshaw',
+    co2PerKm: 0.07,
+    exposureFactor: 1.45,
+    activity: 'rest',
+    speedKmh: 22,
+    open: true,
+    maxKm: 20,
+  },
+  twoWheeler: {
+    label: 'Two-wheeler',
+    co2PerKm: 0.055,
+    exposureFactor: 1.4,
+    activity: 'rest',
+    speedKmh: 26,
+    open: true,
+    maxKm: 40,
+  },
+  car: {
+    label: 'Car (petrol)',
+    co2PerKm: 0.17,
+    exposureFactor: 0.65,
+    activity: 'rest',
+    speedKmh: 24,
+    open: false,
+    maxKm: 100,
+  },
+  ev: {
+    label: 'Electric car',
+    co2PerKm: 0.085,
+    exposureFactor: 0.65,
+    activity: 'rest',
+    speedKmh: 24,
+    open: false,
+    maxKm: 100,
+  },
 };
 
 export const MODE_LABEL: Record<CommuteMode, string> = {

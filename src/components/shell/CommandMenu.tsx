@@ -1,7 +1,25 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { Command } from 'cmdk';
 import { useLocation } from 'wouter';
-import { ArrowRight, Compass, LocateFixed, MapPin, Monitor, Moon, Rocket, Sparkles, Sun } from 'lucide-react';
+import {
+  ArrowRight,
+  Compass,
+  LocateFixed,
+  MapPin,
+  Monitor,
+  Moon,
+  Rocket,
+  Sparkles,
+  Sun,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { searchPlaces, type GeoResult } from '@/lib/air/openMeteo';
 import { useAppState } from '@/state/AppState';
@@ -56,7 +74,10 @@ export function CommandMenuProvider({ children }: { children: ReactNode }) {
     return q;
   }, [pendingQuestion]);
 
-  const value = useMemo(() => ({ open, pendingQuestion, takePendingQuestion }), [open, pendingQuestion, takePendingQuestion]);
+  const value = useMemo(
+    () => ({ open, pendingQuestion, takePendingQuestion }),
+    [open, pendingQuestion, takePendingQuestion],
+  );
 
   return (
     <Ctx.Provider value={value}>
@@ -180,15 +201,22 @@ function CommandDialog({
         )}
 
         <Command.Group heading="Places" className={heading}>
-          <Command.Item value="use-my-location" className={item} onSelect={() => void switchToMyLocation()}>
+          <Command.Item
+            value="use-my-location"
+            className={item}
+            onSelect={() => void switchToMyLocation()}
+          >
             <LocateFixed size={16} aria-hidden="true" className="text-muted" />
             Use my current location
           </Command.Item>
-          {query.trim().length >= 2 && !searching && searched === query.trim() && results.length === 0 && (
-            <div role="status" className="px-3 py-2 text-[13px] text-muted">
-              No places match “{query.trim()}”. Check the spelling or try a nearby city.
-            </div>
-          )}
+          {query.trim().length >= 2 &&
+            !searching &&
+            searched === query.trim() &&
+            results.length === 0 && (
+              <div role="status" className="px-3 py-2 text-[13px] text-muted">
+                No places match “{query.trim()}”. Check the spelling or try a nearby city.
+              </div>
+            )}
           {results.map((r) => (
             <Command.Item
               key={r.id}
@@ -207,7 +235,15 @@ function CommandDialog({
           ))}
           {results.length === 0 &&
             recentPlaces.map((p) => (
-              <Command.Item key={p.label} value={`recent-${p.label}`} className={item} onSelect={() => { setPlace(p); close(); }}>
+              <Command.Item
+                key={p.label}
+                value={`recent-${p.label}`}
+                className={item}
+                onSelect={() => {
+                  setPlace(p);
+                  close();
+                }}
+              >
                 <MapPin size={16} aria-hidden="true" className="text-muted" />
                 <span className="truncate">{p.label}</span>
                 <span className="ml-auto text-xs text-subtle">Recent</span>
@@ -216,12 +252,19 @@ function CommandDialog({
         </Command.Group>
 
         <Command.Group heading="Go to" className={heading}>
-          {ROUTES.filter((r) => !query || r.label.toLowerCase().includes(query.toLowerCase())).map((r) => (
-            <Command.Item key={r.path} value={`nav-${r.path}`} className={item} onSelect={() => go(r.path)}>
-              <ArrowRight size={16} aria-hidden="true" className="text-muted" />
-              {r.label}
-            </Command.Item>
-          ))}
+          {ROUTES.filter((r) => !query || r.label.toLowerCase().includes(query.toLowerCase())).map(
+            (r) => (
+              <Command.Item
+                key={r.path}
+                value={`nav-${r.path}`}
+                className={item}
+                onSelect={() => go(r.path)}
+              >
+                <ArrowRight size={16} aria-hidden="true" className="text-muted" />
+                {r.label}
+              </Command.Item>
+            ),
+          )}
         </Command.Group>
 
         {!query && (
@@ -237,13 +280,34 @@ function CommandDialog({
               <Rocket size={16} aria-hidden="true" className="text-muted" />
               Deploy today’s routine
             </Command.Item>
-            <Command.Item value="theme-dark" className={item} onSelect={() => { setTheme('dark'); close(); }}>
+            <Command.Item
+              value="theme-dark"
+              className={item}
+              onSelect={() => {
+                setTheme('dark');
+                close();
+              }}
+            >
               <Moon size={16} aria-hidden="true" className="text-muted" /> Dark theme
             </Command.Item>
-            <Command.Item value="theme-light" className={item} onSelect={() => { setTheme('light'); close(); }}>
+            <Command.Item
+              value="theme-light"
+              className={item}
+              onSelect={() => {
+                setTheme('light');
+                close();
+              }}
+            >
               <Sun size={16} aria-hidden="true" className="text-muted" /> Light theme
             </Command.Item>
-            <Command.Item value="theme-system" className={item} onSelect={() => { setTheme('system'); close(); }}>
+            <Command.Item
+              value="theme-system"
+              className={item}
+              onSelect={() => {
+                setTheme('system');
+                close();
+              }}
+            >
               <Monitor size={16} aria-hidden="true" className="text-muted" /> System theme
             </Command.Item>
           </Command.Group>
@@ -252,7 +316,8 @@ function CommandDialog({
       <div className="flex items-center justify-between border-t border-line bg-surface-2 px-4 py-2 text-xs text-subtle">
         <span>City search by Open-Meteo</span>
         <span>
-          <kbd className="font-sans">↑↓</kbd> to move, <kbd className="font-sans">↵</kbd> to select, <kbd className="font-sans">esc</kbd> to close
+          <kbd className="font-sans">↑↓</kbd> to move, <kbd className="font-sans">↵</kbd> to select,{' '}
+          <kbd className="font-sans">esc</kbd> to close
         </span>
       </div>
     </Command.Dialog>

@@ -21,15 +21,31 @@ export default function Impact() {
   const air = useAir();
   const [off, setOff] = useState<Set<string>>(new Set());
 
-  const full = useMemo(() => (air.data ? buildPlan(household, air.data) : null), [air.data, household]);
+  const full = useMemo(
+    () => (air.data ? buildPlan(household, air.data) : null),
+    [air.data, household],
+  );
   const selected = useMemo(() => {
     if (!air.data || !full) return null;
     const only = new Set(full.items.filter((i) => i.freeAction && !off.has(i.id)).map((i) => i.id));
     return buildPlan(household, air.data, new Date(), { only });
   }, [air.data, full, household, off]);
 
-  if (air.isError) return <Shell><ErrorCard message={air.error instanceof Error ? air.error.message : 'Unknown error'} onRetry={() => void air.refetch()} /></Shell>;
-  if (!full || !selected) return <Shell><LoadingCard className="h-[420px]" /></Shell>;
+  if (air.isError)
+    return (
+      <Shell>
+        <ErrorCard
+          message={air.error instanceof Error ? air.error.message : 'Unknown error'}
+          onRetry={() => void air.refetch()}
+        />
+      </Shell>
+    );
+  if (!full || !selected)
+    return (
+      <Shell>
+        <LoadingCard className="h-[420px]" />
+      </Shell>
+    );
 
   const t = selected.totals;
   const saved = t.baselineDoseUg - t.optimizedDoseUg;
@@ -45,25 +61,56 @@ export default function Impact() {
   return (
     <Shell>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat label="Dose avoided today" value={fmtDose(saved)} sub={`of ${fmtDose(t.baselineDoseUg)} as usual`} />
-        <Stat label="Exposure cut" value={`${fmtDec(t.exposureCutPct, 0)}%`} sub="household, next 24 h" tone="green" />
-        <Stat label="Cigarettes avoided" value={fmtCig(t.cigarettesAvoided)} sub="Berkeley Earth equivalence" />
-        <Stat label="CO₂e saved" value={`${fmtDec(t.co2SavedKgWeek, 1)} kg`} sub={`a week · ${fmtDec(t.co2SavedKgDay, 2)} kg a day`} tone="blue" />
+        <Stat
+          label="Dose avoided today"
+          value={fmtDose(saved)}
+          sub={`of ${fmtDose(t.baselineDoseUg)} as usual`}
+        />
+        <Stat
+          label="Exposure cut"
+          value={`${fmtDec(t.exposureCutPct, 0)}%`}
+          sub="household, next 24 h"
+          tone="green"
+        />
+        <Stat
+          label="Cigarettes avoided"
+          value={fmtCig(t.cigarettesAvoided)}
+          sub="Berkeley Earth equivalence"
+        />
+        <Stat
+          label="CO₂e saved"
+          value={`${fmtDec(t.co2SavedKgWeek, 1)} kg`}
+          sub={`a week · ${fmtDec(t.co2SavedKgDay, 2)} kg a day`}
+          tone="blue"
+        />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <Card>
-          <CardHeader title="Choice diff" description="Your usual day in red, the plan in green. Switch a change off to see what it is worth." />
+          <CardHeader
+            title="Choice diff"
+            description="Your usual day in red, the plan in green. Switch a change off to see what it is worth."
+          />
           <ul className="border-t border-line">
             {free.map((item) => (
-              <DiffHunk key={item.id} item={item} on={!off.has(item.id)} onToggle={(on) => toggle(item.id, on)} />
+              <DiffHunk
+                key={item.id}
+                item={item}
+                on={!off.has(item.id)}
+                onToggle={(on) => toggle(item.id, on)}
+              />
             ))}
           </ul>
           <CardFooter>
             <span>
               {free.length - off.size} of {free.length} changes applied
             </span>
-            <Button size="sm" variant="tertiary" onClick={() => setOff(new Set())} disabled={off.size === 0}>
+            <Button
+              size="sm"
+              variant="tertiary"
+              onClick={() => setOff(new Set())}
+              disabled={off.size === 0}
+            >
               Apply all
             </Button>
           </CardFooter>
@@ -77,17 +124,36 @@ export default function Impact() {
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <PageHeader title="Impact" description="Exactly what each choice changes: particles not inhaled, cigarette-equivalents avoided and carbon not emitted." />
+      <PageHeader
+        title="Impact"
+        description="Exactly what each choice changes: particles not inhaled, cigarette-equivalents avoided and carbon not emitted."
+      />
       <PageBody>{children}</PageBody>
     </>
   );
 }
 
-function Stat({ label, value, sub, tone }: { label: string; value: string; sub: string; tone?: 'green' | 'blue' }) {
+function Stat({
+  label,
+  value,
+  sub,
+  tone,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  tone?: 'green' | 'blue';
+}) {
   return (
     <Card className="p-5">
       <div className="text-[13px] text-muted">{label}</div>
-      <div className={cn('tabular mt-2 text-[28px] leading-none font-semibold tracking-[-0.035em]', tone === 'green' ? 'text-green' : tone === 'blue' ? 'text-blue' : 'text-fg')} aria-live="polite">
+      <div
+        className={cn(
+          'tabular mt-2 text-[28px] leading-none font-semibold tracking-[-0.035em]',
+          tone === 'green' ? 'text-green' : tone === 'blue' ? 'text-blue' : 'text-fg',
+        )}
+        aria-live="polite"
+      >
         {value}
       </div>
       <div className="mt-2 text-xs text-subtle">{sub}</div>
@@ -95,7 +161,15 @@ function Stat({ label, value, sub, tone }: { label: string; value: string; sub: 
   );
 }
 
-function DiffHunk({ item, on, onToggle }: { item: RoutineItem; on: boolean; onToggle: (on: boolean) => void }) {
+function DiffHunk({
+  item,
+  on,
+  onToggle,
+}: {
+  item: RoutineItem;
+  on: boolean;
+  onToggle: (on: boolean) => void;
+}) {
   const { open } = useCommandMenu();
   const id = `diff-${item.id}`;
   return (
@@ -114,22 +188,35 @@ function DiffHunk({ item, on, onToggle }: { item: RoutineItem; on: boolean; onTo
           <MessageSquareText size={13} aria-hidden="true" /> Ask
         </button>
       </div>
-      <div className={cn('mx-5 mb-3 overflow-hidden rounded-md border border-line font-mono text-[12.5px] transition-opacity duration-200', !on && 'opacity-45')}>
+      <div
+        className={cn(
+          'mx-5 mb-3 overflow-hidden rounded-md border border-line font-mono text-[12.5px] transition-opacity duration-200',
+          !on && 'opacity-45',
+        )}
+      >
         <div className="flex gap-3 bg-[var(--diff-del)] px-3 py-1.5 text-fg">
-          <span aria-hidden="true" className="text-red select-none">−</span>
+          <span aria-hidden="true" className="text-red select-none">
+            −
+          </span>
           <span className="sr-only">Usual: </span>
           <span className="min-w-0">{item.change!.before}</span>
         </div>
         <div className="flex gap-3 bg-[var(--diff-add)] px-3 py-1.5 text-fg">
-          <span aria-hidden="true" className="text-green select-none">+</span>
+          <span aria-hidden="true" className="text-green select-none">
+            +
+          </span>
           <span className="sr-only">Plan: </span>
           <span className="min-w-0">{item.change!.after}</span>
         </div>
         <div className="tabular flex flex-wrap gap-x-4 gap-y-1 border-t border-line bg-surface-2 px-3 py-1.5 font-sans text-xs text-muted">
           <span>−{fmtDose(item.impact.doseSavedUg)} inhaled</span>
           <span>{fmtDec(item.impact.exposureCutPct, 1)}% of their day</span>
-          {item.impact.cigarettesAvoided > 0.004 && <span>−{fmtCig(item.impact.cigarettesAvoided)} cigarettes</span>}
-          {item.impact.co2SavedKg > 0 && <span className="text-blue">−{fmtDec(item.impact.co2SavedKg, 2)} kg CO₂e a day</span>}
+          {item.impact.cigarettesAvoided > 0.004 && (
+            <span>−{fmtCig(item.impact.cigarettesAvoided)} cigarettes</span>
+          )}
+          {item.impact.co2SavedKg > 0 && (
+            <span className="text-blue">−{fmtDec(item.impact.co2SavedKg, 2)} kg CO₂e a day</span>
+          )}
         </div>
       </div>
     </li>
@@ -140,7 +227,10 @@ function MemberUsage({ plan }: { plan: PlanResult }) {
   const { household } = useAppState();
   return (
     <Card>
-      <CardHeader title="Per person" description="Inhaled PM2.5 today against the WHO-guideline budget for their own schedule." />
+      <CardHeader
+        title="Per person"
+        description="Inhaled PM2.5 today against the WHO-guideline budget for their own schedule."
+      />
       <ul className="border-t border-line">
         {plan.members.map((m) => {
           const pct = (m.optimizedDoseUg / Math.max(1, m.budgetUg)) * 100;
@@ -187,7 +277,13 @@ function UsageRing({ pct }: { pct: number }) {
   const over = pct > 100;
   const shown = Math.min(100, pct);
   return (
-    <svg width="60" height="60" viewBox="0 0 60 60" role="img" aria-label={`${Math.round(pct)}% of daily WHO budget`}>
+    <svg
+      width="60"
+      height="60"
+      viewBox="0 0 60 60"
+      role="img"
+      aria-label={`${Math.round(pct)}% of daily WHO budget`}
+    >
       <circle cx="30" cy="30" r={r} fill="none" stroke="var(--hover)" strokeWidth="6" />
       <circle
         cx="30"
@@ -200,7 +296,16 @@ function UsageRing({ pct }: { pct: number }) {
         strokeDasharray={`${(shown / 100) * c} ${c}`}
         transform="rotate(-90 30 30)"
       />
-      <text x="30" y="30" textAnchor="middle" dy="0.35em" fontSize="11" fontWeight="600" fill="var(--fg)" className="tabular">
+      <text
+        x="30"
+        y="30"
+        textAnchor="middle"
+        dy="0.35em"
+        fontSize="11"
+        fontWeight="600"
+        fill="var(--fg)"
+        className="tabular"
+      >
         {over ? `${fmtDec(pct / 100, 1)}×` : `${Math.round(pct)}%`}
       </text>
     </svg>

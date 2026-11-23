@@ -158,20 +158,63 @@ export interface AqiCategory {
 
 const US_CATEGORIES: readonly [number, AqiCategory][] = [
   [50, { level: 0, label: 'Good', advice: 'Air is clean. Enjoy time outside.' }],
-  [100, { level: 1, label: 'Moderate', advice: 'Unusually sensitive people should ease off long outdoor effort.' }],
-  [150, { level: 2, label: 'Unhealthy for sensitive groups', advice: 'Children, older adults and people with asthma should limit outdoor effort.' }],
-  [200, { level: 3, label: 'Unhealthy', advice: 'Everyone should cut long or heavy outdoor effort.' }],
-  [300, { level: 4, label: 'Very unhealthy', advice: 'Stay indoors with filtered air where you can.' }],
-  [Infinity, { level: 5, label: 'Hazardous', advice: 'Health warning for everyone. Avoid going outside.' }],
+  [
+    100,
+    {
+      level: 1,
+      label: 'Moderate',
+      advice: 'Unusually sensitive people should ease off long outdoor effort.',
+    },
+  ],
+  [
+    150,
+    {
+      level: 2,
+      label: 'Unhealthy for sensitive groups',
+      advice: 'Children, older adults and people with asthma should limit outdoor effort.',
+    },
+  ],
+  [
+    200,
+    { level: 3, label: 'Unhealthy', advice: 'Everyone should cut long or heavy outdoor effort.' },
+  ],
+  [
+    300,
+    { level: 4, label: 'Very unhealthy', advice: 'Stay indoors with filtered air where you can.' },
+  ],
+  [
+    Infinity,
+    { level: 5, label: 'Hazardous', advice: 'Health warning for everyone. Avoid going outside.' },
+  ],
 ];
 
 const IN_CATEGORIES: readonly [number, AqiCategory][] = [
   [50, { level: 0, label: 'Good', advice: 'Minimal impact.' }],
-  [100, { level: 1, label: 'Satisfactory', advice: 'Minor breathing discomfort for sensitive people.' }],
-  [200, { level: 2, label: 'Moderate', advice: 'Discomfort for people with lung or heart disease, children and older adults.' }],
-  [300, { level: 3, label: 'Poor', advice: 'Breathing discomfort for most people on long exposure.' }],
+  [
+    100,
+    { level: 1, label: 'Satisfactory', advice: 'Minor breathing discomfort for sensitive people.' },
+  ],
+  [
+    200,
+    {
+      level: 2,
+      label: 'Moderate',
+      advice: 'Discomfort for people with lung or heart disease, children and older adults.',
+    },
+  ],
+  [
+    300,
+    { level: 3, label: 'Poor', advice: 'Breathing discomfort for most people on long exposure.' },
+  ],
   [400, { level: 4, label: 'Very poor', advice: 'Respiratory illness on prolonged exposure.' }],
-  [Infinity, { level: 5, label: 'Severe', advice: 'Affects healthy people and seriously impacts those with existing disease.' }],
+  [
+    Infinity,
+    {
+      level: 5,
+      label: 'Severe',
+      advice: 'Affects healthy people and seriously impacts those with existing disease.',
+    },
+  ],
 ];
 
 export function aqiCategory(aqi: number, standard: AqiStandard): AqiCategory {
@@ -181,7 +224,11 @@ export function aqiCategory(aqi: number, standard: AqiStandard): AqiCategory {
 }
 
 /** Mean of the finite values in `values[from..to]` (inclusive bounds clamped to the array). */
-export function windowMean(values: readonly (number | null)[], from: number, to: number): number | null {
+export function windowMean(
+  values: readonly (number | null)[],
+  from: number,
+  to: number,
+): number | null {
   let sum = 0;
   let n = 0;
   for (let i = Math.max(0, from); i <= Math.min(values.length - 1, to); i++) {
@@ -220,7 +267,10 @@ export function aqiSeries(hourly: readonly HourPoint[], standard: AqiStandard): 
  * Instant AQI from a single hour's concentrations. Used for "what is the air like at 07:00",
  * where a trailing average would blur the hour-to-hour swings people can act on.
  */
-export function hourlyAqi(h: Pick<HourPoint, 'pm25' | 'pm10' | 'no2' | 'o3'>, standard: AqiStandard): AqiResult {
+export function hourlyAqi(
+  h: Pick<HourPoint, 'pm25' | 'pm10' | 'no2' | 'o3'>,
+  standard: AqiStandard,
+): AqiResult {
   return computeAqi({ pm25: h.pm25, pm10: h.pm10, no2: h.no2, o3: h.o3 }, standard);
 }
 

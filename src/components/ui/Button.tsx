@@ -27,7 +27,11 @@ const SIZE: Record<Size, string> = {
 };
 
 /** Button look for links (navigation stays an <a>, never a button inside a link). */
-export function buttonStyles(variant: Variant = 'secondary', size: Size = 'md', className?: string): string {
+export function buttonStyles(
+  variant: Variant = 'secondary',
+  size: Size = 'md',
+  className?: string,
+): string {
   return cn(
     'press inline-flex shrink-0 items-center justify-center font-medium whitespace-nowrap select-none',
     'transition-[background-color,opacity,border-color] duration-150 ease-out',
@@ -38,7 +42,18 @@ export function buttonStyles(variant: Variant = 'secondary', size: Size = 'md', 
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = 'secondary', size = 'md', loading = false, leading, trailing, className, children, disabled, type = 'button', ...rest },
+  {
+    variant = 'secondary',
+    size = 'md',
+    loading = false,
+    leading,
+    trailing,
+    className,
+    children,
+    disabled,
+    type = 'button',
+    ...rest
+  },
   ref,
 ) {
   return (

@@ -69,7 +69,10 @@ export async function claudeJson<T>(opts: {
       max_tokens: 4_096,
       system: opts.system,
       messages: [{ role: 'user', content: opts.prompt }],
-      output_config: { effort: 'low', format: { type: 'json_schema', schema: strictSchema(opts.jsonSchema) } },
+      output_config: {
+        effort: 'low',
+        format: { type: 'json_schema', schema: strictSchema(opts.jsonSchema) },
+      },
     });
     if (res.stop_reason === 'refusal') return null;
     const text = res.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
@@ -81,8 +84,13 @@ export async function claudeJson<T>(opts: {
     return { data: parsed.data, model: CLAUDE_MODEL };
   } catch (err) {
     if (err instanceof Anthropic.RateLimitError) console.warn('[exhale] Claude rate limited');
-    else if (err instanceof Anthropic.APIError) console.warn(`[exhale] Claude API error ${err.status}`);
-    else console.warn('[exhale] Claude call failed:', err instanceof Error ? err.message.slice(0, 160) : 'unknown');
+    else if (err instanceof Anthropic.APIError)
+      console.warn(`[exhale] Claude API error ${err.status}`);
+    else
+      console.warn(
+        '[exhale] Claude call failed:',
+        err instanceof Error ? err.message.slice(0, 160) : 'unknown',
+      );
     return null;
   }
 }
@@ -93,7 +101,11 @@ export interface ChatTurn {
 }
 
 /** Streams Claude's answer as text deltas. Yields nothing if Claude is unavailable. */
-export async function* claudeStream(opts: { system: string; messages: ChatTurn[]; client?: ClaudeLike | null }): AsyncGenerator<string, boolean> {
+export async function* claudeStream(opts: {
+  system: string;
+  messages: ChatTurn[];
+  client?: ClaudeLike | null;
+}): AsyncGenerator<string, boolean> {
   const client = opts.client === undefined ? getClaude() : opts.client;
   if (!client || !withinBudget()) return false;
   let started = false;
@@ -113,7 +125,10 @@ export async function* claudeStream(opts: { system: string; messages: ChatTurn[]
     }
     return started;
   } catch (err) {
-    console.warn('[exhale] Claude stream failed:', err instanceof Anthropic.APIError ? `status ${err.status}` : 'unknown');
+    console.warn(
+      '[exhale] Claude stream failed:',
+      err instanceof Anthropic.APIError ? `status ${err.status}` : 'unknown',
+    );
     if (started) yield '\n\n_The answer was cut short. Please ask again._';
     return started;
   }

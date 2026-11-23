@@ -18,7 +18,12 @@ export function winterBlh(hod: number): number {
   return 30;
 }
 
-export function makeHourly(days = 5, startDate = '2026-11-22', pm = winterPm25, blh = winterBlh): HourPoint[] {
+export function makeHourly(
+  days = 5,
+  startDate = '2026-11-22',
+  pm = winterPm25,
+  blh = winterBlh,
+): HourPoint[] {
   const out: HourPoint[] = [];
   const start = new Date(`${startDate}T00:00:00Z`);
   for (let i = 0; i < days * 24; i++) {

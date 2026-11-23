@@ -32,7 +32,9 @@ describe('buildPlan', () => {
 
   it('moves a healthy adult outdoors only into a window within their limit', () => {
     const hh = clone(DEFAULT_HOUSEHOLD);
-    const air = makeSnapshot({ hourly: makeHourly(5, '2026-11-22', (h) => (h >= 13 && h <= 15 ? 40 : 170)) });
+    const air = makeSnapshot({
+      hourly: makeHourly(5, '2026-11-22', (h) => (h >= 13 && h <= 15 ? 40 : 170)),
+    });
     const p = buildPlan(hh, air, NOW);
     const you = p.items.find((i) => i.id === 'exercise-you');
     expect(you?.status).toBe('go');
@@ -41,7 +43,14 @@ describe('buildPlan', () => {
 
   it('keeps a habit that is already clean', () => {
     const hh = clone(DEFAULT_HOUSEHOLD);
-    const air = makeSnapshot({ hourly: makeHourly(5, '2026-11-22', () => 20, () => 1500) });
+    const air = makeSnapshot({
+      hourly: makeHourly(
+        5,
+        '2026-11-22',
+        () => 20,
+        () => 1500,
+      ),
+    });
     const p = buildPlan(hh, air, NOW);
     expect(p.items.find((i) => i.id === 'exercise-you')?.title).toMatch(/^Keep/);
     expect(p.lid.stagnantHours).toBe(0);

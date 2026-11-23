@@ -63,7 +63,9 @@ export function describePlan(plan: PlanResult): string {
         `- ${m.name}: outdoor PM2.5 limit ${m.pm25Limit} µg/m³; WHO-level daily budget ${m.budgetUg} µg; today as usual ${m.baselineDoseUg} µg (${m.baselineCigarettes} cigarettes); with plan ${m.optimizedDoseUg} µg (${m.optimizedCigarettes} cigarettes)`,
     )
     .join('\n');
-  const lid = plan.lid.spans.map((s) => `${s.start} to ${s.end} (mixing height down to ${s.minBlh} m)`).join('; ');
+  const lid = plan.lid.spans
+    .map((s) => `${s.start} to ${s.end} (mixing height down to ${s.minBlh} m)`)
+    .join('; ');
   return `Location: ${plan.placeLabel}. Plan covers ${plan.horizon.start} to ${plan.horizon.end} local time.
 Now: AQI ${plan.risk.aqi} (${plan.risk.standard === 'in' ? 'India NAQI' : 'US EPA'}), "${plan.risk.label}", dominant ${plan.risk.dominant}. PM2.5 ${plan.current.pm25 ?? 'n/a'} µg/m³, mixing height ${plan.current.blh ?? 'n/a'} m, wind ${plan.current.wind ?? 'n/a'} km/h, dispersion ${plan.current.dispersion ?? 'n/a'}.
 Smog lid hours: ${lid || 'none in the next 24 h'}.

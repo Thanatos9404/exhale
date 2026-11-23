@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { z } from 'zod';
 import { DEFAULT_HOUSEHOLD, parseHousehold, type Household } from '@/lib/profile/schema';
 import type { Place } from '@/lib/air/types';
@@ -9,7 +17,12 @@ import { KEYS, readStored, removeStored, writeStored } from '@/lib/storage';
  * Everything lives in this browser only; nothing is stored on a server.
  */
 
-export const DEFAULT_PLACE: Place = { lat: 28.6139, lon: 77.209, label: 'New Delhi, India', timezone: 'Asia/Kolkata' };
+export const DEFAULT_PLACE: Place = {
+  lat: 28.6139,
+  lon: 77.209,
+  label: 'New Delhi, India',
+  timezone: 'Asia/Kolkata',
+};
 
 const placeSchema = z.object({
   lat: z.number().min(-90).max(90),
@@ -45,7 +58,8 @@ const parseRecent = (raw: unknown) => {
 
 function applyTheme(pref: ThemePref) {
   const dark =
-    pref === 'dark' || (pref === 'system' && window.matchMedia?.('(prefers-color-scheme: dark)').matches);
+    pref === 'dark' ||
+    (pref === 'system' && window.matchMedia?.('(prefers-color-scheme: dark)').matches);
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
 }
 
@@ -53,8 +67,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [household, setHouseholdState] = useState<Household>(
     () => readStored(KEYS.household, parseHousehold) ?? DEFAULT_HOUSEHOLD,
   );
-  const [place, setPlaceState] = useState<Place>(() => readStored(KEYS.place, parsePlace) ?? DEFAULT_PLACE);
-  const [recentPlaces, setRecent] = useState<Place[]>(() => readStored(`${KEYS.place}.recent`, parseRecent) ?? []);
+  const [place, setPlaceState] = useState<Place>(
+    () => readStored(KEYS.place, parsePlace) ?? DEFAULT_PLACE,
+  );
+  const [recentPlaces, setRecent] = useState<Place[]>(
+    () => readStored(`${KEYS.place}.recent`, parseRecent) ?? [],
+  );
   const [theme, setThemeState] = useState<ThemePref>(() => {
     try {
       const t = localStorage.getItem(KEYS.theme);
@@ -81,7 +99,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const resetHousehold = useCallback(() => setHousehold(DEFAULT_HOUSEHOLD), [setHousehold]);
 
   const setPlace = useCallback((p: Place) => {
-    const clean: Place = { lat: p.lat, lon: p.lon, label: p.label.slice(0, 80), ...(p.timezone ? { timezone: p.timezone } : {}) };
+    const clean: Place = {
+      lat: p.lat,
+      lon: p.lon,
+      label: p.label.slice(0, 80),
+      ...(p.timezone ? { timezone: p.timezone } : {}),
+    };
     setPlaceState(clean);
     writeStored(KEYS.place, clean);
     setRecent((prev) => {
@@ -109,8 +132,28 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ household, setHousehold, resetHousehold, place, setPlace, recentPlaces, theme, setTheme, clearLocalData }),
-    [household, setHousehold, resetHousehold, place, setPlace, recentPlaces, theme, setTheme, clearLocalData],
+    () => ({
+      household,
+      setHousehold,
+      resetHousehold,
+      place,
+      setPlace,
+      recentPlaces,
+      theme,
+      setTheme,
+      clearLocalData,
+    }),
+    [
+      household,
+      setHousehold,
+      resetHousehold,
+      place,
+      setPlace,
+      recentPlaces,
+      theme,
+      setTheme,
+      clearLocalData,
+    ],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

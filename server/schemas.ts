@@ -39,8 +39,16 @@ export type ChatRequest = z.infer<typeof chatRequestSchema>;
 export const AI_PLAN_JSON_SCHEMA = {
   type: 'object',
   properties: {
-    headline: { type: 'string', description: 'One sentence, under 160 characters, naming the single most important move today.' },
-    summary: { type: 'string', description: 'Two or three sentences for the family explaining why today is bad or good and what the plan achieves, quoting the numbers given.' },
+    headline: {
+      type: 'string',
+      description:
+        'One sentence, under 160 characters, naming the single most important move today.',
+    },
+    summary: {
+      type: 'string',
+      description:
+        'Two or three sentences for the family explaining why today is bad or good and what the plan achieves, quoting the numbers given.',
+    },
     items: {
       type: 'array',
       description: 'One entry per routine item id from the context, in the same order.',
@@ -48,27 +56,37 @@ export const AI_PLAN_JSON_SCHEMA = {
         type: 'object',
         properties: {
           id: { type: 'string' },
-          why: { type: 'string', description: 'Personal, concrete reason for this action, under 280 characters, using the given numbers.' },
+          why: {
+            type: 'string',
+            description:
+              'Personal, concrete reason for this action, under 280 characters, using the given numbers.',
+          },
         },
         required: ['id', 'why'],
       },
     },
     indoorHacks: {
       type: 'array',
-      description: 'Three indoor air quality hacks suited to this home that are not already in the routine.',
+      description:
+        'Three indoor air quality hacks suited to this home that are not already in the routine.',
       items: {
         type: 'object',
         properties: {
           title: { type: 'string' },
           detail: { type: 'string' },
-          impact: { type: 'string', description: 'The direct effect in plain words, e.g. "Cuts bedroom PM2.5 by about a third overnight".' },
+          impact: {
+            type: 'string',
+            description:
+              'The direct effect in plain words, e.g. "Cuts bedroom PM2.5 by about a third overnight".',
+          },
         },
         required: ['title', 'detail', 'impact'],
       },
     },
     sustainableSwaps: {
       type: 'array',
-      description: 'Three low-emission alternatives for this household and city that reduce what they add to the smog.',
+      description:
+        'Three low-emission alternatives for this household and city that reduce what they add to the smog.',
       items: {
         type: 'object',
         properties: {
@@ -79,7 +97,11 @@ export const AI_PLAN_JSON_SCHEMA = {
         required: ['title', 'detail', 'impact'],
       },
     },
-    familyNote: { type: 'string', description: 'Optional note for children, older adults or anyone with a condition in the household.' },
+    familyNote: {
+      type: 'string',
+      description:
+        'Optional note for children, older adults or anyone with a condition in the household.',
+    },
   },
   required: ['headline', 'summary', 'items', 'indoorHacks', 'sustainableSwaps'],
 } as const;

@@ -3,7 +3,7 @@
 **Air observability for families.** Exhale is a GenAI assistant that helps families and communities get through severe winter smog. It reads live air-quality and weather data for any city, detects the smog lid that traps pollution near the ground, re-plans the household's next 24 hours for lower exposure and lower emissions, and shows the exact impact of every choice: micrograms of particulate not inhaled, cigarette-equivalents avoided and kilograms of CO2 not emitted.
 
 - **Live app:** https://exhale-air.vercel.app
-- **Challenge:** PromptWars Virtual, Challenge 6: *Urban Air Quality Assistant* (Hack2skill × Google for Developers)
+- **Challenge:** PromptWars Virtual, Challenge 6: _Urban Air Quality Assistant_ (Hack2skill × Google for Developers)
 - **Built with:** Gemini API (structured output, streaming, Google Search grounding), React 19, TypeScript, Vite, three.js / React Three Fiber, Motion, GSAP, Vercel Functions
 
 ![Exhale overview: live 3D air column, AQI and the re-planned routine](docs/overview.png)
@@ -14,14 +14,14 @@
 
 **Urban Air Quality Assistant.** The problem statement asks for a GenAI-powered assistant that helps families and communities navigate severe winter smog and urban air pollution, suggesting low-emission daily routines, indoor air quality hacks and sustainable alternatives tailored to location and lifestyle, while clearly explaining the direct impact of their choices.
 
-| Requirement | Where Exhale does it |
-| --- | --- |
-| Help families navigate winter smog | Live AQI (India NAQI or US EPA), smog-lid detection from boundary-layer height, per-person outdoor limits by age and health condition |
-| Low-emission daily routines | **Routine** page: a re-planned 24 hours (airing time, exercise windows, commute mode and departure time), "deployed" with Gemini explanations |
-| Indoor air quality hacks | **Indoor lab** (physics model of a room), indoor-source actions in the routine, Gemini-tailored hacks |
-| Sustainable alternatives | Commute mode comparison with CO2e per trip, fuel upgrades (chulha to LPG, coal heater to electric), Gemini-tailored low-emission swaps |
-| Tailored to location and lifestyle | Any city via geocoding or browser location; a household profile (people, conditions, commute, home, cooking, heating, coils, incense) |
-| Clearly explain the direct impact | Every action carries computed impact; **Impact** page shows a habit-vs-plan diff with live what-if toggles |
+| Requirement                        | Where Exhale does it                                                                                                                          |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Help families navigate winter smog | Live AQI (India NAQI or US EPA), smog-lid detection from boundary-layer height, per-person outdoor limits by age and health condition         |
+| Low-emission daily routines        | **Routine** page: a re-planned 24 hours (airing time, exercise windows, commute mode and departure time), "deployed" with Gemini explanations |
+| Indoor air quality hacks           | **Indoor lab** (physics model of a room), indoor-source actions in the routine, Gemini-tailored hacks                                         |
+| Sustainable alternatives           | Commute mode comparison with CO2e per trip, fuel upgrades (chulha to LPG, coal heater to electric), Gemini-tailored low-emission swaps        |
+| Tailored to location and lifestyle | Any city via geocoding or browser location; a household profile (people, conditions, commute, home, cooking, heating, coils, incense)         |
+| Clearly explain the direct impact  | Every action carries computed impact; **Impact** page shows a habit-vs-plan diff with live what-if toggles                                    |
 
 ## Approach and logic
 
@@ -77,29 +77,29 @@ flowchart LR
 
 ### Pages
 
-| Page | What it shows |
-| --- | --- |
-| Overview | AQI, a live **3D air column** (particles ∝ PM2.5 trapped under a lid at the forecast mixing height, drifting with the wind; scrub 48 h), top actions and each person's WHO exposure budget |
-| Forecast | Analytics-style chart for AQI and every pollutant with lid hours and the clean window marked, a **particle donut** of how far each pollutant exceeds WHO guidelines, cleanest hours, and an animated **inversion diagram** |
-| Routine | Deploy with Gemini, build logs, every action with status, time, people, impact and a "why" |
-| Impact | Totals, a habit-vs-plan **diff**, per-person usage rings, toggles that re-run the engine for what-if analysis |
-| Indoor lab | A mass-balance room simulator with live particle canvas and ranked quick wins |
-| Assistant | Streaming chat grounded in live data and the household, optional web search with sources |
-| Settings | The household profile: people, conditions, commute, home, fuels, sources |
+| Page       | What it shows                                                                                                                                                                                                              |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Overview   | AQI, a live **3D air column** (particles ∝ PM2.5 trapped under a lid at the forecast mixing height, drifting with the wind; scrub 48 h), top actions and each person's WHO exposure budget                                 |
+| Forecast   | Analytics-style chart for AQI and every pollutant with lid hours and the clean window marked, a **particle donut** of how far each pollutant exceeds WHO guidelines, cleanest hours, and an animated **inversion diagram** |
+| Routine    | Deploy with Gemini, build logs, every action with status, time, people, impact and a "why"                                                                                                                                 |
+| Impact     | Totals, a habit-vs-plan **diff**, per-person usage rings, toggles that re-run the engine for what-if analysis                                                                                                              |
+| Indoor lab | A mass-balance room simulator with live particle canvas and ranked quick wins                                                                                                                                              |
+| Assistant  | Streaming chat grounded in live data and the household, optional web search with sources                                                                                                                                   |
+| Settings   | The household profile: people, conditions, commute, home, fuels, sources                                                                                                                                                   |
 
 ![Exhale forecast: analytics chart with smog-lid hours, particle donut and inversion diagram](docs/forecast.png)
 
 ## How the numbers work
 
-| Quantity | Method | Source |
-| --- | --- | --- |
-| Inhaled dose | concentration × breathing rate × hours | Breathing rates by age and activity: US EPA *Exposure Factors Handbook* (2011), Table 6-2 |
-| Cigarette equivalent | 22 µg/m³ PM2.5 for 24 h ≈ 1 cigarette | Berkeley Earth (Muller & Muller, 2015) |
-| Daily budget | WHO 24 h guideline (15 µg/m³) × the person's own breathed volume | WHO Global Air Quality Guidelines (2021) |
-| Indoor PM2.5 | Steady state `C_in = (P·a·C_out + S/V) / (a + k + CADR/V)` | Standard single-zone mass balance |
-| Smog lid | boundary-layer height < 300 m and wind < 12 km/h | Ventilation coefficient = mixing height × wind speed (IMD uses it for dispersion forecasts) |
-| Commute | per-mode CO2e per passenger-km, in-transit exposure factors, typical urban speeds | Assumptions below |
-| Mosquito coils | one coil ≈ PM2.5 mass of 75 to 137 cigarettes | Liu et al., *Environ Health Perspect* (2003) |
+| Quantity             | Method                                                                            | Source                                                                                      |
+| -------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Inhaled dose         | concentration × breathing rate × hours                                            | Breathing rates by age and activity: US EPA _Exposure Factors Handbook_ (2011), Table 6-2   |
+| Cigarette equivalent | 22 µg/m³ PM2.5 for 24 h ≈ 1 cigarette                                             | Berkeley Earth (Muller & Muller, 2015)                                                      |
+| Daily budget         | WHO 24 h guideline (15 µg/m³) × the person's own breathed volume                  | WHO Global Air Quality Guidelines (2021)                                                    |
+| Indoor PM2.5         | Steady state `C_in = (P·a·C_out + S/V) / (a + k + CADR/V)`                        | Standard single-zone mass balance                                                           |
+| Smog lid             | boundary-layer height < 300 m and wind < 12 km/h                                  | Ventilation coefficient = mixing height × wind speed (IMD uses it for dispersion forecasts) |
+| Commute              | per-mode CO2e per passenger-km, in-transit exposure factors, typical urban speeds | Assumptions below                                                                           |
+| Mosquito coils       | one coil ≈ PM2.5 mass of 75 to 137 cigarettes                                     | Liu et al., _Environ Health Perspect_ (2003)                                                |
 
 ## Assumptions
 
@@ -114,15 +114,15 @@ flowchart LR
 
 ## Google AI usage
 
-| Where | Gemini feature | Purpose |
-| --- | --- | --- |
-| `api/plan.ts` | `generateContent` with `responseJsonSchema` (structured output) | Headline, summary, per-action "why", indoor hacks, sustainable swaps, a note for the most sensitive person |
-| `api/chat.ts` | `generateContentStream` | Streaming assistant grounded in the live plan and household |
-| `api/chat.ts` | Google Search grounding (`tools: [{ googleSearch: {} }]`) | Current local advisories (for example GRAP stages), with cited sources |
-| `server/gemini.ts` | Hedged requests across a model chain, with a circuit breaker | `gemini-3.6-flash` first; if it has not answered in 7 s a Flash-Lite model races it and the first valid answer wins. Overloaded models cool down for 3 min; per-attempt timeouts and an overall deadline fit a serverless function |
-| All calls | `thinkingLevel: low` | The engine already did the reasoning, so light thinking halves latency |
-| `server/gemini.ts` | Key rotation (`GEMINI_API_KEYS`, comma separated) | Every key × model pair is a candidate with its own circuit breaker, so one exhausted key never takes the feature down |
-| `server/claude.ts` | Claude Haiku (`claude-haiku-5-5`) as second provider, optional | Used only when every Gemini key and model fails: structured JSON output (`output_config.format`) for plans and streaming for chat, with a per-minute budget. Enabled by setting `ANTHROPIC_API_KEY` |
+| Where              | Gemini feature                                                  | Purpose                                                                                                                                                                                                                            |
+| ------------------ | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `api/plan.ts`      | `generateContent` with `responseJsonSchema` (structured output) | Headline, summary, per-action "why", indoor hacks, sustainable swaps, a note for the most sensitive person                                                                                                                         |
+| `api/chat.ts`      | `generateContentStream`                                         | Streaming assistant grounded in the live plan and household                                                                                                                                                                        |
+| `api/chat.ts`      | Google Search grounding (`tools: [{ googleSearch: {} }]`)       | Current local advisories (for example GRAP stages), with cited sources                                                                                                                                                             |
+| `server/gemini.ts` | Hedged requests across a model chain, with a circuit breaker    | `gemini-3.6-flash` first; if it has not answered in 7 s a Flash-Lite model races it and the first valid answer wins. Overloaded models cool down for 3 min; per-attempt timeouts and an overall deadline fit a serverless function |
+| All calls          | `thinkingLevel: low`                                            | The engine already did the reasoning, so light thinking halves latency                                                                                                                                                             |
+| `server/gemini.ts` | Key rotation (`GEMINI_API_KEYS`, comma separated)               | Every key × model pair is a candidate with its own circuit breaker, so one exhausted key never takes the feature down                                                                                                              |
+| `server/claude.ts` | Claude Haiku (`claude-haiku-5-5`) as second provider, optional  | Used only when every Gemini key and model fails: structured JSON output (`output_config.format`) for plans and streaming for chat, with a per-minute budget. Enabled by setting `ANTHROPIC_API_KEY`                                |
 
 Without any key the app still works end to end: plans use the engine's own explanations and chat answers come from an offline responder built on the plan. The order is always Gemini, then Claude Haiku (if configured), then the rules engine.
 

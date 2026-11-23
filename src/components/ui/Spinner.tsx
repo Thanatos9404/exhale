@@ -1,7 +1,11 @@
 /** Twelve-spoke spinner in the style of developer dashboards. Decorative: callers announce state. */
 export function Spinner({ size = 16 }: { size?: number }) {
   return (
-    <span aria-hidden="true" className="relative inline-block" style={{ width: size, height: size }}>
+    <span
+      aria-hidden="true"
+      className="relative inline-block"
+      style={{ width: size, height: size }}
+    >
       {Array.from({ length: 12 }, (_, i) => (
         <span
           key={i}

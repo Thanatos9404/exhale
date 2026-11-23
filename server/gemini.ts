@@ -1,4 +1,9 @@
-import { GoogleGenAI, ThinkingLevel, type Content, type GenerateContentConfig } from '@google/genai';
+import {
+  GoogleGenAI,
+  ThinkingLevel,
+  type Content,
+  type GenerateContentConfig,
+} from '@google/genai';
 import type { ZodType } from 'zod';
 
 /**
@@ -11,7 +16,12 @@ import type { ZodType } from 'zod';
  * - Every structured response is validated with zod before the app trusts it.
  */
 
-export const DEFAULT_MODELS = ['gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-flash-latest'] as const;
+export const DEFAULT_MODELS = [
+  'gemini-3.6-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-flash-lite-latest',
+  'gemini-flash-latest',
+] as const;
 const PER_MODEL_TIMEOUT_MS = 12_000;
 const FIRST_TOKEN_TIMEOUT_MS = 8_000;
 const HEDGE_AFTER_MS = 7_000;
@@ -46,14 +56,19 @@ const slotId = (c: Pick<Candidate, 'key' | 'model'>) => `${c.key}/${c.model}`;
 
 /** Unique keys from GEMINI_API_KEYS (comma separated) and GEMINI_API_KEY, in that order. */
 export function configuredKeys(env: NodeJS.ProcessEnv = process.env): string[] {
-  const list = [...(env.GEMINI_API_KEYS ?? '').split(','), env.GEMINI_API_KEY ?? ''].map((k) => k.trim()).filter(Boolean);
+  const list = [...(env.GEMINI_API_KEYS ?? '').split(','), env.GEMINI_API_KEY ?? '']
+    .map((k) => k.trim())
+    .filter(Boolean);
   return [...new Set(list)];
 }
 
 function clients(): Slot[] {
   if (cached !== undefined) return cached;
   // v1beta carries structured output, search grounding and the -latest model aliases.
-  cached = configuredKeys().map((apiKey, i) => ({ key: `k${i + 1}`, client: new GoogleGenAI({ apiKey, apiVersion: 'v1beta' }) }));
+  cached = configuredKeys().map((apiKey, i) => ({
+    key: `k${i + 1}`,
+    client: new GoogleGenAI({ apiKey, apiVersion: 'v1beta' }),
+  }));
   return cached;
 }
 
@@ -99,7 +114,9 @@ export function outOfQuota(c: Pick<Candidate, 'key' | 'model'>, now = Date.now()
 /** Errors worth retrying elsewhere: unknown model, quota, overload, timeouts. */
 export function isRetryable(err: unknown): boolean {
   const msg = err instanceof Error ? `${err.name} ${err.message}` : String(err);
-  return /404|not found|thinking|no longer available|429|quota|rate|503|overload|high demand|unavailable|500|internal|deadline|timeout|abort/i.test(msg);
+  return /404|not found|thinking|no longer available|429|quota|rate|503|overload|high demand|unavailable|500|internal|deadline|timeout|abort/i.test(
+    msg,
+  );
 }
 
 export interface JsonResult<T> {
@@ -115,7 +132,13 @@ export interface JsonResult<T> {
 export function hedged<C, R>(
   items: readonly C[],
   run: (item: C, signal: AbortSignal) => Promise<R>,
-  opts: { hedgeAfterMs: number; deadlineMs: number; perAttemptMs: number; rounds?: number; backoffMs?: number },
+  opts: {
+    hedgeAfterMs: number;
+    deadlineMs: number;
+    perAttemptMs: number;
+    rounds?: number;
+    backoffMs?: number;
+  },
 ): Promise<R | null> {
   return new Promise((resolve) => {
     const controllers: AbortController[] = [];
@@ -163,7 +186,8 @@ export function hedged<C, R>(
   });
 }
 
-const errText = (err: unknown, n = 160) => (err instanceof Error ? err.message.slice(0, n) : 'unknown');
+const errText = (err: unknown, n = 160) =>
+  err instanceof Error ? err.message.slice(0, n) : 'unknown';
 
 export async function generateJson<T>(opts: {
   system: string;
@@ -176,7 +200,8 @@ export async function generateJson<T>(opts: {
   rounds?: number;
   backoffMs?: number;
 }): Promise<JsonResult<T> | null> {
-  const slots = opts.client === undefined ? clients() : opts.client ? [{ key: 'k1', client: opts.client }] : [];
+  const slots =
+    opts.client === undefined ? clients() : opts.client ? [{ key: 'k1', client: opts.client }] : [];
   if (slots.length === 0) return null;
   const attempt = async (c: Candidate, signal: AbortSignal): Promise<JsonResult<T>> => {
     if (outOfQuota(c)) throw new Error(`${slotId(c)} is out of quota`);
@@ -190,7 +215,11 @@ export async function generateJson<T>(opts: {
       abortSignal: signal,
     };
     try {
-      const res = await c.client.models.generateContent({ model: c.model, contents: opts.prompt, config });
+      const res = await c.client.models.generateContent({
+        model: c.model,
+        contents: opts.prompt,
+        config,
+      });
       const parsed = opts.validate.safeParse(JSON.parse(res.text ?? ''));
       if (!parsed.success) throw new SyntaxError(`${c.model} returned JSON that failed validation`);
       return { data: parsed.data, model: c.model };
@@ -224,8 +253,11 @@ export interface StreamOptions {
  * so a user never sees two half-answers stitched together. Appends web sources when
  * Google Search grounding is on.
  */
-export async function* streamText(opts: StreamOptions): AsyncGenerator<string, { model: string } | null> {
-  const slots = opts.client === undefined ? clients() : opts.client ? [{ key: 'k1', client: opts.client }] : [];
+export async function* streamText(
+  opts: StreamOptions,
+): AsyncGenerator<string, { model: string } | null> {
+  const slots =
+    opts.client === undefined ? clients() : opts.client ? [{ key: 'k1', client: opts.client }] : [];
   if (slots.length === 0) return null;
   const deadline = Date.now() + OVERALL_DEADLINE_MS;
   const list = candidates(slots);
@@ -238,7 +270,10 @@ export async function* streamText(opts: StreamOptions): AsyncGenerator<string, {
     let started = false;
     const ctrl = new AbortController();
     // Time-to-first-token budget; cleared once text starts flowing.
-    const firstTokenTimer = setTimeout(() => ctrl.abort(new Error('timeout waiting for first token')), FIRST_TOKEN_TIMEOUT_MS);
+    const firstTokenTimer = setTimeout(
+      () => ctrl.abort(new Error('timeout waiting for first token')),
+      FIRST_TOKEN_TIMEOUT_MS,
+    );
     const hardStop = setTimeout(() => ctrl.abort(new Error('deadline')), 55_000);
     try {
       const stream = await c.client.models.generateContentStream({

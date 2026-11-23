@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 export function useCssVars<T extends string>(names: readonly T[]): Record<T, string> {
   const read = () => {
     const style = getComputedStyle(document.documentElement);
-    return Object.fromEntries(names.map((n) => [n, style.getPropertyValue(`--${n}`).trim() || '#888'])) as Record<T, string>;
+    return Object.fromEntries(
+      names.map((n) => [n, style.getPropertyValue(`--${n}`).trim() || '#888']),
+    ) as Record<T, string>;
   };
   const [vars, setVars] = useState(read);
   useEffect(() => {

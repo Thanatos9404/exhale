@@ -10,7 +10,15 @@ import {
 } from './exposure';
 import { PURIFIER_CADR, infiltrationRatio, simulateRoom, sourceIncrement } from './indoor';
 import { MODES, N95_FACTOR, rankModes, tripExposure } from './commute';
-import { cleanestWindow, dirtiestWindow, dispersionClass, fmtHour, isLidHour, lidSpans, ventilationCoefficient } from './meteo';
+import {
+  cleanestWindow,
+  dirtiestWindow,
+  dispersionClass,
+  fmtHour,
+  isLidHour,
+  lidSpans,
+  ventilationCoefficient,
+} from './meteo';
 import { makeHourly } from '@/test/fixtures';
 
 describe('exposure', () => {
@@ -45,13 +53,25 @@ describe('exposure', () => {
 
 describe('indoor mass balance', () => {
   it('keeps a sealed home below outdoor levels without sources', () => {
-    const r = simulateRoom({ outdoorPm25: 200, areaM2: 14, ventilation: 'sealed', windowsOpen: false, purifier: 'none' });
+    const r = simulateRoom({
+      outdoorPm25: 200,
+      areaM2: 14,
+      ventilation: 'sealed',
+      windowsOpen: false,
+      purifier: 'none',
+    });
     expect(r.indoorPm25).toBeLessThan(200);
     expect(r.ratio).toBeCloseTo((0.8 * 0.3) / (0.3 + 0.2), 5);
   });
 
   it('lets open windows bring indoor air close to outdoor air', () => {
-    const open = simulateRoom({ outdoorPm25: 200, areaM2: 14, ventilation: 'normal', windowsOpen: true, purifier: 'none' });
+    const open = simulateRoom({
+      outdoorPm25: 200,
+      areaM2: 14,
+      ventilation: 'normal',
+      windowsOpen: true,
+      purifier: 'none',
+    });
     expect(open.ratio).toBeGreaterThan(0.9);
   });
 
@@ -72,7 +92,13 @@ describe('indoor mass balance', () => {
   });
 
   it('reports how fast the room settles', () => {
-    const r = simulateRoom({ outdoorPm25: 100, areaM2: 14, ventilation: 'normal', windowsOpen: false, purifier: 'medium' });
+    const r = simulateRoom({
+      outdoorPm25: 100,
+      areaM2: 14,
+      ventilation: 'normal',
+      windowsOpen: false,
+      purifier: 'medium',
+    });
     expect(r.timeConstantMin).toBeGreaterThan(0);
     expect(r.timeConstantMin).toBeLessThan(60);
   });

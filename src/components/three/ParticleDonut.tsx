@@ -59,7 +59,15 @@ const fragment = /* glsl */ `
   }
 `;
 
-function Ring({ segments, hover, animate }: { segments: DonutSegment[]; hover: number; animate: boolean }) {
+function Ring({
+  segments,
+  hover,
+  animate,
+}: {
+  segments: DonutSegment[];
+  hover: number;
+  animate: boolean;
+}) {
   const mat = useRef<THREE.ShaderMaterial>(null);
   const group = useRef<THREE.Group>(null);
   const geometry = useMemo(() => {
@@ -90,7 +98,12 @@ function Ring({ segments, hover, animate }: { segments: DonutSegment[]; hover: n
       uHover: { value: -1 },
       uPixel: { value: Math.min(2, window.devicePixelRatio || 1) },
       uStarts: { value: starts },
-      uColors: { value: Array.from({ length: MAX_SEG }, (_, i) => new THREE.Color(segments[i]?.color ?? '#888')) },
+      uColors: {
+        value: Array.from(
+          { length: MAX_SEG },
+          (_, i) => new THREE.Color(segments[i]?.color ?? '#888'),
+        ),
+      },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -111,20 +124,38 @@ function Ring({ segments, hover, animate }: { segments: DonutSegment[]; hover: n
   return (
     <group ref={group}>
       <points geometry={geometry} frustumCulled={false}>
-        <shaderMaterial ref={mat} vertexShader={vertex} fragmentShader={fragment} uniforms={uniforms} transparent depthWrite={false} />
+        <shaderMaterial
+          ref={mat}
+          vertexShader={vertex}
+          fragmentShader={fragment}
+          uniforms={uniforms}
+          transparent
+          depthWrite={false}
+        />
       </points>
     </group>
   );
 }
 
-export default function ParticleDonut({ segments, hover }: { segments: DonutSegment[]; hover: number }) {
+export default function ParticleDonut({
+  segments,
+  hover,
+}: {
+  segments: DonutSegment[];
+  hover: number;
+}) {
   const wrap = useRef<HTMLDivElement>(null);
   const inView = useInView(wrap);
   const reduced = useReducedMotion();
   const animate = inView && !reduced;
   return (
     <div ref={wrap} className="absolute inset-0">
-      <Canvas dpr={[1, 1.75]} frameloop={animate ? 'always' : 'demand'} camera={{ position: [0, 0, 3.4], fov: 45 }} gl={{ alpha: true, antialias: true, powerPreference: 'low-power' }}>
+      <Canvas
+        dpr={[1, 1.75]}
+        frameloop={animate ? 'always' : 'demand'}
+        camera={{ position: [0, 0, 3.4], fov: 45 }}
+        gl={{ alpha: true, antialias: true, powerPreference: 'low-power' }}
+      >
         <Ring segments={segments} hover={hover} animate={animate} />
       </Canvas>
     </div>

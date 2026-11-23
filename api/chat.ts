@@ -22,14 +22,18 @@ const limiter = createRateLimiter({ limit: 30, windowMs: 5 * 60_000 });
 export async function POST(request: Request): Promise<Response> {
   try {
     const rl = limiter.check(clientKey(request));
-    if (!rl.ok) throw new HttpError(429, 'Too many questions at once. Try again shortly.', { 'retry-after': String(rl.retryAfterSec) });
+    if (!rl.ok)
+      throw new HttpError(429, 'Too many questions at once. Try again shortly.', {
+        'retry-after': String(rl.retryAfterSec),
+      });
 
     const body = chatRequestSchema.safeParse(await readJson(request, 48_000));
     if (!body.success) throw new HttpError(400, 'Invalid chat request');
     const household = parseHousehold(body.data.household);
     if (!household) throw new HttpError(400, 'Invalid household profile');
     const { messages, place, search } = body.data;
-    if (messages[messages.length - 1]!.role !== 'user') throw new HttpError(400, 'Last message must be from the user');
+    if (messages[messages.length - 1]!.role !== 'user')
+      throw new HttpError(400, 'Last message must be from the user');
 
     const air = await getAir(place).catch(() => {
       throw new HttpError(502, 'Air data provider is unavailable');
@@ -55,7 +59,11 @@ export async function POST(request: Request): Promise<Response> {
       async start(controller) {
         let sent = false;
         const pipe = async (withSearch: boolean) => {
-          for await (const chunk of streamText({ system: CHAT_SYSTEM, contents, search: withSearch })) {
+          for await (const chunk of streamText({
+            system: CHAT_SYSTEM,
+            contents,
+            search: withSearch,
+          })) {
             sent = true;
             controller.enqueue(encoder.encode(chunk));
           }
@@ -64,7 +72,11 @@ export async function POST(request: Request): Promise<Response> {
           await pipe(search);
           if (!sent && search) {
             // Grounding can be unavailable (quota or region); answer from live data instead of failing.
-            controller.enqueue(encoder.encode('_Web search is unavailable right now, so this answer uses your live data only._\n\n'));
+            controller.enqueue(
+              encoder.encode(
+                '_Web search is unavailable right now, so this answer uses your live data only._\n\n',
+              ),
+            );
             await pipe(false);
           }
         }

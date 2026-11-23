@@ -7,7 +7,15 @@ import { useReducedMotion } from 'motion/react';
  * drift apart like breath leaving a mask. Paused offscreen, in background tabs and for
  * reduced-motion users (who get a still frame).
  */
-export function ParticleOrb({ size = 18, active = false, className }: { size?: number; active?: boolean; className?: string }) {
+export function ParticleOrb({
+  size = 18,
+  active = false,
+  className,
+}: {
+  size?: number;
+  active?: boolean;
+  className?: string;
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
   const activeRef = useRef(active);
   const reduced = useReducedMotion();
@@ -87,5 +95,12 @@ export function ParticleOrb({ size = 18, active = false, className }: { size?: n
     };
   }, [size, reduced]);
 
-  return <canvas ref={ref} aria-hidden="true" className={className} style={{ width: size, height: size }} />;
+  return (
+    <canvas
+      ref={ref}
+      aria-hidden="true"
+      className={className}
+      style={{ width: size, height: size }}
+    />
+  );
 }

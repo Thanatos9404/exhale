@@ -89,8 +89,13 @@ export function simulateRoom(input: RoomInput): RoomResult {
 }
 
 /** Indoor/outdoor ratio from infiltration alone (no indoor sources), windows shut. */
-export function infiltrationRatio(ventilation: Ventilation, purifier: Purifier, areaM2: number): number {
-  return simulateRoom({ outdoorPm25: 100, areaM2, ventilation, windowsOpen: false, purifier }).ratio;
+export function infiltrationRatio(
+  ventilation: Ventilation,
+  purifier: Purifier,
+  areaM2: number,
+): number {
+  return simulateRoom({ outdoorPm25: 100, areaM2, ventilation, windowsOpen: false, purifier })
+    .ratio;
 }
 
 /** Extra µg/m³ an indoor source adds on top of infiltration, for the given room. */
@@ -100,6 +105,12 @@ export function sourceIncrement(
   purifier: Purifier,
   areaM2: number,
 ): number {
-  return simulateRoom({ outdoorPm25: 0, areaM2, ventilation, windowsOpen: false, purifier, sourceUgPerHour })
-    .indoorPm25;
+  return simulateRoom({
+    outdoorPm25: 0,
+    areaM2,
+    ventilation,
+    windowsOpen: false,
+    purifier,
+    sourceUgPerHour,
+  }).indoorPm25;
 }

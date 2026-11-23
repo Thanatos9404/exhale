@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { IN_TABLES, US_TABLES, aqiCategory, aqiSeries, computeAqi, hourlyAqi, subIndex, windowMean } from './aqi';
+import {
+  IN_TABLES,
+  US_TABLES,
+  aqiCategory,
+  aqiSeries,
+  computeAqi,
+  hourlyAqi,
+  subIndex,
+  windowMean,
+} from './aqi';
 import { makeHourly } from '@/test/fixtures';
 
 describe('subIndex', () => {

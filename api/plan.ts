@@ -4,7 +4,12 @@ import { generateJson } from '../server/gemini.js';
 import { HttpError, clientKey, errorResponse, json, readJson } from '../server/http.js';
 import { PLAN_SYSTEM, buildPlanPrompt } from '../server/prompts.js';
 import { createRateLimiter } from '../server/rateLimit.js';
-import { AI_PLAN_JSON_SCHEMA, aiPlanSchema, planRequestSchema, type AiPlan } from '../server/schemas.js';
+import {
+  AI_PLAN_JSON_SCHEMA,
+  aiPlanSchema,
+  planRequestSchema,
+  type AiPlan,
+} from '../server/schemas.js';
 import { buildPlan } from '../src/lib/planner/engine.js';
 import type { PlanResponse } from '../src/lib/apiTypes.js';
 import { parseHousehold } from '../src/lib/profile/schema.js';
@@ -22,7 +27,10 @@ const limiter = createRateLimiter({ limit: 12, windowMs: 5 * 60_000 });
 export async function POST(request: Request): Promise<Response> {
   try {
     const rl = limiter.check(clientKey(request));
-    if (!rl.ok) throw new HttpError(429, 'Too many plans requested. Try again shortly.', { 'retry-after': String(rl.retryAfterSec) });
+    if (!rl.ok)
+      throw new HttpError(429, 'Too many plans requested. Try again shortly.', {
+        'retry-after': String(rl.retryAfterSec),
+      });
 
     const body = planRequestSchema.safeParse(await readJson(request, 24_000));
     if (!body.success) throw new HttpError(400, 'Invalid plan request');

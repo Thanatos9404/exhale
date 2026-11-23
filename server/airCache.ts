@@ -9,7 +9,11 @@ const TTL_MS = 10 * 60_000;
 const MAX_ENTRIES = 500;
 const cache = new Map<string, { at: number; data: Promise<AirSnapshot> }>();
 
-export function getAir(place: Place, fetchImpl: typeof fetch = fetch, now = Date.now()): Promise<AirSnapshot> {
+export function getAir(
+  place: Place,
+  fetchImpl: typeof fetch = fetch,
+  now = Date.now(),
+): Promise<AirSnapshot> {
   const key = `${roundCoord(place.lat)},${roundCoord(place.lon)}`;
   const hit = cache.get(key);
   if (hit && now - hit.at < TTL_MS) {

@@ -1,4 +1,12 @@
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent,
+} from 'react';
 import { area, curveMonotoneX, line } from 'd3-shape';
 import { scaleLinear } from 'd3-scale';
 import { cn } from '@/lib/cn';
@@ -37,7 +45,16 @@ interface Props {
 
 const PAD = { top: 16, right: 8, bottom: 26, left: 40 };
 
-export function AreaChart({ data, nowIndex, bands = [], thresholds = [], unit, ariaLabel, height = 280, format = (v) => String(Math.round(v)) }: Props) {
+export function AreaChart({
+  data,
+  nowIndex,
+  bands = [],
+  thresholds = [],
+  unit,
+  ariaLabel,
+  height = 280,
+  format = (v) => String(Math.round(v)),
+}: Props) {
   const gradId = useId().replace(/:/g, '');
   const hatchId = `${gradId}-hatch`;
   const svgRef = useRef<SVGSVGElement>(null);
@@ -60,11 +77,27 @@ export function AreaChart({ data, nowIndex, bands = [], thresholds = [], unit, a
   const { x, y, path, fill, ticks, maxV } = useMemo(() => {
     const vals = data.map((d) => d.value ?? 0);
     const maxV = Math.max(10, ...vals, ...thresholds.map((t) => t.value)) * 1.12;
-    const x = scaleLinear().domain([0, Math.max(1, data.length - 1)]).range([PAD.left, W - PAD.right]);
-    const y = scaleLinear().domain([0, maxV]).range([height - PAD.bottom, PAD.top]).nice();
+    const x = scaleLinear()
+      .domain([0, Math.max(1, data.length - 1)])
+      .range([PAD.left, W - PAD.right]);
+    const y = scaleLinear()
+      .domain([0, maxV])
+      .range([height - PAD.bottom, PAD.top])
+      .nice();
     const defined = (d: ChartPoint) => d.value != null;
-    const path = line<ChartPoint>().defined(defined).x((_, i) => x(i)).y((d) => y(d.value ?? 0)).curve(curveMonotoneX)(data) ?? '';
-    const fill = area<ChartPoint>().defined(defined).x((_, i) => x(i)).y0(y(0)).y1((d) => y(d.value ?? 0)).curve(curveMonotoneX)(data) ?? '';
+    const path =
+      line<ChartPoint>()
+        .defined(defined)
+        .x((_, i) => x(i))
+        .y((d) => y(d.value ?? 0))
+        .curve(curveMonotoneX)(data) ?? '';
+    const fill =
+      area<ChartPoint>()
+        .defined(defined)
+        .x((_, i) => x(i))
+        .y0(y(0))
+        .y1((d) => y(d.value ?? 0))
+        .curve(curveMonotoneX)(data) ?? '';
     return { x, y, path, fill, ticks: y.ticks(4), maxV };
   }, [data, height, thresholds, W]);
 
@@ -98,7 +131,7 @@ export function AreaChart({ data, nowIndex, bands = [], thresholds = [], unit, a
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${height}`}
-                className="block w-full touch-pan-y outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
+        className="block w-full touch-pan-y outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
         style={{ height }}
         role="img"
         aria-label={`${ariaLabel}. Peak ${format(Math.max(...data.map((d) => d.value ?? 0)))} ${unit}. Use left and right arrow keys to read hourly values.`}
@@ -113,8 +146,22 @@ export function AreaChart({ data, nowIndex, bands = [], thresholds = [], unit, a
             <stop offset="0%" stopColor="var(--blue)" stopOpacity="0.28" />
             <stop offset="100%" stopColor="var(--blue)" stopOpacity="0" />
           </linearGradient>
-          <pattern id={hatchId} width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-            <line x1="0" y1="0" x2="0" y2="8" stroke="var(--amber)" strokeOpacity="0.28" strokeWidth="3" />
+          <pattern
+            id={hatchId}
+            width="8"
+            height="8"
+            patternUnits="userSpaceOnUse"
+            patternTransform="rotate(45)"
+          >
+            <line
+              x1="0"
+              y1="0"
+              x2="0"
+              y2="8"
+              stroke="var(--amber)"
+              strokeOpacity="0.28"
+              strokeWidth="3"
+            />
           </pattern>
         </defs>
 
@@ -132,8 +179,24 @@ export function AreaChart({ data, nowIndex, bands = [], thresholds = [], unit, a
 
         {ticks.map((t) => (
           <g key={t}>
-            <line x1={PAD.left} x2={W - PAD.right} y1={y(t)} y2={y(t)} stroke="var(--line)" strokeDasharray={t === 0 ? undefined : '3 4'} vectorEffect="non-scaling-stroke" />
-            <text x={PAD.left - 8} y={y(t)} dy="0.32em" textAnchor="end" fontSize="11" fill="var(--subtle)" className="tabular">
+            <line
+              x1={PAD.left}
+              x2={W - PAD.right}
+              y1={y(t)}
+              y2={y(t)}
+              stroke="var(--line)"
+              strokeDasharray={t === 0 ? undefined : '3 4'}
+              vectorEffect="non-scaling-stroke"
+            />
+            <text
+              x={PAD.left - 8}
+              y={y(t)}
+              dy="0.32em"
+              textAnchor="end"
+              fontSize="11"
+              fill="var(--subtle)"
+              className="tabular"
+            >
               {format(t)}
             </text>
           </g>
@@ -143,20 +206,55 @@ export function AreaChart({ data, nowIndex, bands = [], thresholds = [], unit, a
           .filter((t) => t.value < maxV)
           .map((t) => (
             <g key={t.label}>
-              <line x1={PAD.left} x2={W - PAD.right} y1={y(t.value)} y2={y(t.value)} stroke="var(--muted)" strokeOpacity="0.55" strokeDasharray="6 4" vectorEffect="non-scaling-stroke" />
-              <text x={W - PAD.right - 4} y={y(t.value) - 5} textAnchor="end" fontSize="11" fill="var(--muted)">
+              <line
+                x1={PAD.left}
+                x2={W - PAD.right}
+                y1={y(t.value)}
+                y2={y(t.value)}
+                stroke="var(--muted)"
+                strokeOpacity="0.55"
+                strokeDasharray="6 4"
+                vectorEffect="non-scaling-stroke"
+              />
+              <text
+                x={W - PAD.right - 4}
+                y={y(t.value) - 5}
+                textAnchor="end"
+                fontSize="11"
+                fill="var(--muted)"
+              >
                 {t.label}
               </text>
             </g>
           ))}
 
         <path d={fill} fill={`url(#${gradId})`} />
-        <path d={path} fill="none" stroke="var(--blue)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+        <path
+          d={path}
+          fill="none"
+          stroke="var(--blue)"
+          strokeWidth="2"
+          vectorEffect="non-scaling-stroke"
+        />
 
         {nowIndex != null && nowIndex >= 0 && nowIndex < data.length && (
           <g>
-            <line x1={x(nowIndex)} x2={x(nowIndex)} y1={PAD.top} y2={height - PAD.bottom} stroke="var(--fg)" strokeOpacity="0.5" vectorEffect="non-scaling-stroke" />
-            <text x={x(nowIndex) + 6} y={PAD.top + 10} fontSize="11" fill="var(--fg)" fontWeight="600">
+            <line
+              x1={x(nowIndex)}
+              x2={x(nowIndex)}
+              y1={PAD.top}
+              y2={height - PAD.bottom}
+              stroke="var(--fg)"
+              strokeOpacity="0.5"
+              vectorEffect="non-scaling-stroke"
+            />
+            <text
+              x={x(nowIndex) + 6}
+              y={PAD.top + 10}
+              fontSize="11"
+              fill="var(--fg)"
+              fontWeight="600"
+            >
               Now
             </text>
           </g>
@@ -164,7 +262,15 @@ export function AreaChart({ data, nowIndex, bands = [], thresholds = [], unit, a
 
         {data.map((d, i) =>
           i % labelEvery === 0 ? (
-            <text key={i} x={x(i)} y={height - 8} textAnchor="middle" fontSize="11" fill="var(--subtle)" className="tabular">
+            <text
+              key={i}
+              x={x(i)}
+              y={height - 8}
+              textAnchor="middle"
+              fontSize="11"
+              fill="var(--subtle)"
+              className="tabular"
+            >
               {d.label}
             </text>
           ) : null,
@@ -172,14 +278,32 @@ export function AreaChart({ data, nowIndex, bands = [], thresholds = [], unit, a
 
         {cursor != null && active?.value != null && (
           <g pointerEvents="none">
-            <line x1={x(cursor)} x2={x(cursor)} y1={PAD.top} y2={height - PAD.bottom} stroke="var(--fg)" strokeOpacity="0.35" vectorEffect="non-scaling-stroke" />
-            <circle cx={x(cursor)} cy={y(active.value)} r="4.5" fill="var(--surface)" stroke="var(--blue)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+            <line
+              x1={x(cursor)}
+              x2={x(cursor)}
+              y1={PAD.top}
+              y2={height - PAD.bottom}
+              stroke="var(--fg)"
+              strokeOpacity="0.35"
+              vectorEffect="non-scaling-stroke"
+            />
+            <circle
+              cx={x(cursor)}
+              cy={y(active.value)}
+              r="4.5"
+              fill="var(--surface)"
+              stroke="var(--blue)"
+              strokeWidth="2"
+              vectorEffect="non-scaling-stroke"
+            />
           </g>
         )}
       </svg>
 
       <div aria-live="polite" className="sr-only">
-        {active ? `${active.label}: ${active.value == null ? 'no data' : `${format(active.value)} ${unit}`}` : ''}
+        {active
+          ? `${active.label}: ${active.value == null ? 'no data' : `${format(active.value)} ${unit}`}`
+          : ''}
       </div>
 
       {active && (

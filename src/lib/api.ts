@@ -25,9 +25,17 @@ async function failure(res: Response): Promise<ApiError> {
   return new ApiError(message, res.status);
 }
 
-const placeBody = (p: Place) => ({ lat: p.lat, lon: p.lon, label: p.label.replace(/[^\p{L}\p{N} .,'()&/-]/gu, '').slice(0, 80) || 'My place' });
+const placeBody = (p: Place) => ({
+  lat: p.lat,
+  lon: p.lon,
+  label: p.label.replace(/[^\p{L}\p{N} .,'()&/-]/gu, '').slice(0, 80) || 'My place',
+});
 
-export async function requestPlan(place: Place, household: Household, signal?: AbortSignal): Promise<PlanResponse> {
+export async function requestPlan(
+  place: Place,
+  household: Household,
+  signal?: AbortSignal,
+): Promise<PlanResponse> {
   const res = await fetch('/api/plan', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

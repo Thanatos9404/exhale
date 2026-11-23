@@ -26,7 +26,17 @@ const SOURCES = [
   { x: 330, y: GROUND - 8 },
 ];
 
-export function InversionDiagram({ blh, wind, vc, dispersion }: { blh: number; wind: number; vc: number | null; dispersion: Dispersion | null }) {
+export function InversionDiagram({
+  blh,
+  wind,
+  vc,
+  dispersion,
+}: {
+  blh: number;
+  wind: number;
+  vc: number | null;
+  dispersion: Dispersion | null;
+}) {
   const root = useRef<SVGSVGElement>(null);
   const reduced = useReducedMotion();
   const lid = lidToY(blh);
@@ -37,7 +47,7 @@ export function InversionDiagram({ blh, wind, vc, dispersion }: { blh: number; w
       const puffs = gsap.utils.toArray<SVGCircleElement>('.puff', root.current);
       puffs.forEach((p, i) => {
         const src = SOURCES[i % SOURCES.length]!;
-        const spread = (i % 2 ? 1 : -1) * (40 + (i * 13) % 60);
+        const spread = (i % 2 ? 1 : -1) * (40 + ((i * 13) % 60));
         const ceiling = lid + 6 + (i % 3) * 5;
         if (reduced) {
           gsap.set(p, { attr: { cx: src.x + spread * 0.8, cy: ceiling + 4, r: 9 }, opacity: 0.45 });
@@ -47,11 +57,29 @@ export function InversionDiagram({ blh, wind, vc, dispersion }: { blh: number; w
           .timeline({ repeat: -1, delay: (i * 0.45) % 5 })
           .set(p, { attr: { cx: src.x, cy: src.y, r: 3 }, opacity: 0 })
           .to(p, { opacity: 0.6, duration: 0.4, ease: 'none' })
-          .to(p, { attr: { cy: ceiling, r: 7 }, duration: 1.6 + (src.y - ceiling) / 120, ease: 'power1.out' }, '<')
-          .to(p, { attr: { cx: src.x + spread + wind * 2, r: 12 }, opacity: 0.35, duration: 2.4, ease: 'sine.out' })
+          .to(
+            p,
+            {
+              attr: { cy: ceiling, r: 7 },
+              duration: 1.6 + (src.y - ceiling) / 120,
+              ease: 'power1.out',
+            },
+            '<',
+          )
+          .to(p, {
+            attr: { cx: src.x + spread + wind * 2, r: 12 },
+            opacity: 0.35,
+            duration: 2.4,
+            ease: 'sine.out',
+          })
           .to(p, { opacity: 0, duration: 0.8, ease: 'none' });
       });
-      gsap.to('.lid-line', { strokeDashoffset: -24, duration: 2, repeat: reduced ? 0 : -1, ease: 'none' });
+      gsap.to('.lid-line', {
+        strokeDashoffset: -24,
+        duration: 2,
+        repeat: reduced ? 0 : -1,
+        ease: 'none',
+      });
     },
     { scope: root, dependencies: [lid, reduced, wind], revertOnUpdate: true },
   );
@@ -60,14 +88,30 @@ export function InversionDiagram({ blh, wind, vc, dispersion }: { blh: number; w
 
   return (
     <figure className="m-0">
-      <svg ref={root} viewBox={`0 0 400 ${H}`} className="block h-auto w-full" role="img" aria-labelledby={`${uid}-t`} aria-describedby={`${uid}-d`}>
+      <svg
+        ref={root}
+        viewBox={`0 0 400 ${H}`}
+        className="block h-auto w-full"
+        role="img"
+        aria-labelledby={`${uid}-t`}
+        aria-describedby={`${uid}-d`}
+      >
         <title id={`${uid}-t`}>Temperature inversion diagram</title>
         <desc id={`${uid}-d`}>
           {`A warm-air lid sits ${Math.round(blh)} metres above the city. Smoke from chimneys and traffic rises until it meets the lid and then spreads sideways, trapping pollution near the ground. Ventilation coefficient ${vcText}.`}
         </desc>
         <rect x="0" y={lid} width="400" height={GROUND - lid} fill="var(--blue)" opacity="0.06" />
         <rect x="0" y="0" width="400" height={lid} fill="var(--amber)" opacity="0.05" />
-        <line className="lid-line" x1="0" x2="400" y1={lid} y2={lid} stroke="var(--amber)" strokeWidth="1.5" strokeDasharray="8 4" />
+        <line
+          className="lid-line"
+          x1="0"
+          x2="400"
+          y1={lid}
+          y2={lid}
+          stroke="var(--amber)"
+          strokeWidth="1.5"
+          strokeDasharray="8 4"
+        />
         <text x="10" y={lid - 8} fontSize="11" fill="var(--amber)" fontWeight="600">
           Warm-air lid · {Math.round(blh)} m
         </text>
@@ -86,7 +130,15 @@ export function InversionDiagram({ blh, wind, vc, dispersion }: { blh: number; w
         <rect x="316" y={GROUND - 12} width="26" height="9" rx="3" fill="var(--subtle)" />
         <line x1="0" x2="400" y1={GROUND} y2={GROUND} stroke="var(--line-strong)" />
         {Array.from({ length: 15 }, (_, i) => (
-          <circle key={i} className="puff" cx={SOURCES[i % 3]!.x} cy={SOURCES[i % 3]!.y} r="3" fill="var(--muted)" opacity="0" />
+          <circle
+            key={i}
+            className="puff"
+            cx={SOURCES[i % 3]!.x}
+            cy={SOURCES[i % 3]!.y}
+            r="3"
+            fill="var(--muted)"
+            opacity="0"
+          />
         ))}
       </svg>
       <figcaption className="mt-3 grid grid-cols-3 gap-2 text-xs">

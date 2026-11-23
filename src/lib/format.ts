@@ -4,10 +4,12 @@ export const fmtDec = (v: number, dp = 1) =>
   v.toLocaleString('en-IN', { minimumFractionDigits: dp, maximumFractionDigits: dp });
 
 /** "2.4" for big numbers, "0.35" for small ones, so cigarettes read naturally. */
-export const fmtCig = (v: number) => (Math.abs(v) >= 10 ? fmtDec(v, 0) : Math.abs(v) >= 1 ? fmtDec(v, 1) : fmtDec(v, 2));
+export const fmtCig = (v: number) =>
+  Math.abs(v) >= 10 ? fmtDec(v, 0) : Math.abs(v) >= 1 ? fmtDec(v, 1) : fmtDec(v, 2);
 
 /** µg with a readable unit step: 1,240 µg or 1.2 mg. */
-export const fmtDose = (ug: number) => (Math.abs(ug) >= 10_000 ? `${fmtDec(ug / 1000, 1)} mg` : `${fmtInt(ug)} µg`);
+export const fmtDose = (ug: number) =>
+  Math.abs(ug) >= 10_000 ? `${fmtDec(ug / 1000, 1)} mg` : `${fmtInt(ug)} µg`;
 
 export const hourLabel = (time: string) => time.slice(11, 16);
 

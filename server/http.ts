@@ -34,11 +34,13 @@ export function errorResponse(err: unknown): Response {
 /** Reads a JSON body with a hard size cap, rejecting other content types. */
 export async function readJson(request: Request, maxBytes: number): Promise<unknown> {
   const type = request.headers.get('content-type') ?? '';
-  if (!type.toLowerCase().includes('application/json')) throw new HttpError(415, 'Expected application/json');
+  if (!type.toLowerCase().includes('application/json'))
+    throw new HttpError(415, 'Expected application/json');
   const declared = Number(request.headers.get('content-length') ?? '0');
   if (declared > maxBytes) throw new HttpError(413, 'Request body too large');
   const text = await request.text();
-  if (new TextEncoder().encode(text).byteLength > maxBytes) throw new HttpError(413, 'Request body too large');
+  if (new TextEncoder().encode(text).byteLength > maxBytes)
+    throw new HttpError(413, 'Request body too large');
   try {
     return JSON.parse(text) as unknown;
   } catch {

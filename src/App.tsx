@@ -20,8 +20,13 @@ const Settings = lazy(() => import('@/pages/Settings'));
 function useDocumentTitle() {
   const [location] = useLocation();
   useEffect(() => {
-    const route = ROUTES.find((r) => (r.path === '/' ? location === '/' : location.startsWith(r.path)));
-    document.title = route && route.path !== '/' ? `${route.label} · Exhale` : 'Exhale · Air observability for families';
+    const route = ROUTES.find((r) =>
+      r.path === '/' ? location === '/' : location.startsWith(r.path),
+    );
+    document.title =
+      route && route.path !== '/'
+        ? `${route.label} · Exhale`
+        : 'Exhale · Air observability for families';
     window.scrollTo({ top: 0 });
   }, [location]);
 }
@@ -31,7 +36,15 @@ function NotFound() {
     <>
       <PageHeader title="Page not found" />
       <PageBody>
-        <EmptyState title="Nothing here" body="That page does not exist. Head back to the overview to see your air." action={<a href="/" className={buttonStyles('primary', 'sm')}>Go to overview</a>} />
+        <EmptyState
+          title="Nothing here"
+          body="That page does not exist. Head back to the overview to see your air."
+          action={
+            <a href="/" className={buttonStyles('primary', 'sm')}>
+              Go to overview
+            </a>
+          }
+        />
       </PageBody>
     </>
   );
@@ -51,7 +64,13 @@ export default function App() {
       <Header />
       <Tabs />
       <main id="main" tabIndex={-1} className="min-h-[70dvh] outline-none">
-        <Suspense fallback={<PageBody><LoadingCard label="Loading page" className="mt-10 h-[360px]" /></PageBody>}>
+        <Suspense
+          fallback={
+            <PageBody>
+              <LoadingCard label="Loading page" className="mt-10 h-[360px]" />
+            </PageBody>
+          }
+        >
           <Switch>
             <Route path="/" component={Overview} />
             <Route path="/forecast" component={Forecast} />
@@ -68,7 +87,14 @@ export default function App() {
       <Toaster
         theme={theme === 'system' ? 'system' : theme}
         position="bottom-right"
-        toastOptions={{ className: 'font-sans', style: { background: 'var(--surface)', color: 'var(--fg)', border: '1px solid var(--line)' } }}
+        toastOptions={{
+          className: 'font-sans',
+          style: {
+            background: 'var(--surface)',
+            color: 'var(--fg)',
+            border: '1px solid var(--line)',
+          },
+        }}
       />
     </CommandMenuProvider>
   );

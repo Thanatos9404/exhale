@@ -30,7 +30,10 @@ function devApi(): Plugin {
 }
 
 async function handle(server: ViteDevServer, req: IncomingMessage, res: ServerResponse) {
-  const name = (req.url ?? '/').split('?')[0]!.replace(/^\/+/, '').replace(/[^a-z-]/g, '');
+  const name = (req.url ?? '/')
+    .split('?')[0]!
+    .replace(/^\/+/, '')
+    .replace(/[^a-z-]/g, '');
   const mod = (await server.ssrLoadModule(`/api/${name}.ts`)) as Record<
     string,
     ((r: Request) => Promise<Response>) | undefined
@@ -89,11 +92,17 @@ export default defineConfig(({ mode }) => {
           // Long-lived vendor chunks cache across deploys; heavy visuals load on demand.
           manualChunks(id: string) {
             if (!id.includes('node_modules')) return undefined;
-            if (/[\\/](three|@react-three|three-stdlib|camera-controls|maath)[\\/]/.test(id)) return 'three';
-            if (/[\\/](react-markdown|remark-[^\\/]+|micromark[^\\/]*|mdast-[^\\/]+|unified|hast-[^\\/]+|vfile[^\\/]*|unist-[^\\/]+)[\\/]/.test(id))
+            if (/[\\/](three|@react-three|three-stdlib|camera-controls|maath)[\\/]/.test(id))
+              return 'three';
+            if (
+              /[\\/](react-markdown|remark-[^\\/]+|micromark[^\\/]*|mdast-[^\\/]+|unified|hast-[^\\/]+|vfile[^\\/]*|unist-[^\\/]+)[\\/]/.test(
+                id,
+              )
+            )
               return 'markdown';
             if (/[\\/]gsap[\\/]|[\\/]@gsap[\\/]/.test(id)) return 'gsap';
-            if (/[\\/](motion|framer-motion|motion-dom|motion-utils)[\\/]/.test(id)) return 'motion';
+            if (/[\\/](motion|framer-motion|motion-dom|motion-utils)[\\/]/.test(id))
+              return 'motion';
             if (/[\\/](react|react-dom|scheduler|wouter)[\\/]/.test(id)) return 'react';
             if (/[\\/](@tanstack|zod)[\\/]/.test(id)) return 'data';
             if (/[\\/](cmdk|@radix-ui|sonner)[\\/]/.test(id)) return 'ui';

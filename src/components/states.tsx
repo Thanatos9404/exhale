@@ -2,7 +2,13 @@ import { CloudOff } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Card, Skeleton } from './ui/primitives';
 
-export function LoadingCard({ label = 'Loading live air data', className }: { label?: string; className?: string }) {
+export function LoadingCard({
+  label = 'Loading live air data',
+  className,
+}: {
+  label?: string;
+  className?: string;
+}) {
   return (
     <Card className={className} aria-busy="true">
       <span className="sr-only" role="status">
@@ -34,7 +40,15 @@ export function ErrorCard({ message, onRetry }: { message: string; onRetry?: () 
   );
 }
 
-export function EmptyState({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
+export function EmptyState({
+  title,
+  body,
+  action,
+}: {
+  title: string;
+  body: string;
+  action?: React.ReactNode;
+}) {
   return (
     <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-line-strong px-6 py-12 text-center">
       <p className="text-sm font-medium text-fg">{title}</p>

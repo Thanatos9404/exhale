@@ -24,7 +24,13 @@ export function Logo({ size = 22, title }: { size?: number; title?: string }) {
 /** The thin diagonal separator used between breadcrumb segments. */
 export function Slash() {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" className="shrink-0 text-line-strong">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+      className="shrink-0 text-line-strong"
+    >
       <path d="M11 2 5 14" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
     </svg>
   );

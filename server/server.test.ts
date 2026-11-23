@@ -4,7 +4,15 @@ import { z } from 'zod';
 import { createRateLimiter } from './rateLimit';
 import { HttpError, clientKey, errorResponse, readJson } from './http';
 import { buildChatContext, buildPlanPrompt, describeHousehold, PLAN_SYSTEM } from './prompts';
-import { generateJson, hedged, isRetryable, modelChain, setClient, streamText, type GenAiLike } from './gemini';
+import {
+  generateJson,
+  hedged,
+  isRetryable,
+  modelChain,
+  setClient,
+  streamText,
+  type GenAiLike,
+} from './gemini';
 import { fallbackAnswer } from './fallback';
 import { buildPlan } from '../src/lib/planner/engine';
 import { DEFAULT_HOUSEHOLD } from '../src/lib/profile/schema';
@@ -42,7 +50,9 @@ describe('http helpers', () => {
 
   it('rejects wrong content types, oversize and malformed bodies', async () => {
     await expect(readJson(req('{}', 'text/plain'), 100)).rejects.toMatchObject({ status: 415 });
-    await expect(readJson(req(`{"a":"${'x'.repeat(200)}"}`), 100)).rejects.toMatchObject({ status: 413 });
+    await expect(readJson(req(`{"a":"${'x'.repeat(200)}"}`), 100)).rejects.toMatchObject({
+      status: 413,
+    });
     await expect(readJson(req('{oops'), 100)).rejects.toMatchObject({ status: 400 });
   });
 
@@ -87,7 +97,9 @@ describe('gemini wrapper', () => {
   const schema = z.object({ ok: z.boolean() });
 
   it('returns null without a client so callers fall back to the engine', async () => {
-    await expect(generateJson({ system: 's', prompt: 'p', jsonSchema: {}, validate: schema, client: null })).resolves.toBeNull();
+    await expect(
+      generateJson({ system: 's', prompt: 'p', jsonSchema: {}, validate: schema, client: null }),
+    ).resolves.toBeNull();
   });
 
   it('puts the configured model first and de-duplicates', () => {
@@ -102,8 +114,16 @@ describe('gemini wrapper', () => {
       .fn()
       .mockRejectedValueOnce(new Error('503 model overloaded'))
       .mockResolvedValueOnce({ text: '{"ok": true}' });
-    const client = { models: { generateContent, generateContentStream: vi.fn() } } as unknown as GenAiLike;
-    const r = await generateJson({ system: 's', prompt: 'p', jsonSchema: {}, validate: schema, client });
+    const client = {
+      models: { generateContent, generateContentStream: vi.fn() },
+    } as unknown as GenAiLike;
+    const r = await generateJson({
+      system: 's',
+      prompt: 'p',
+      jsonSchema: {},
+      validate: schema,
+      client,
+    });
     expect(r?.data).toEqual({ ok: true });
     expect(generateContent).toHaveBeenCalledTimes(2);
   });
@@ -111,36 +131,66 @@ describe('gemini wrapper', () => {
   it('rejects JSON that does not match the schema', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     const generateContent = vi.fn().mockResolvedValue({ text: '{"ok": "yes"}' });
-    const client = { models: { generateContent, generateContentStream: vi.fn() } } as unknown as GenAiLike;
-    await expect(generateJson({ system: 's', prompt: 'p', jsonSchema: {}, validate: schema, client, backoffMs: 5 })).resolves.toBeNull();
+    const client = {
+      models: { generateContent, generateContentStream: vi.fn() },
+    } as unknown as GenAiLike;
+    await expect(
+      generateJson({
+        system: 's',
+        prompt: 'p',
+        jsonSchema: {},
+        validate: schema,
+        client,
+        backoffMs: 5,
+      }),
+    ).resolves.toBeNull();
   });
 
   it('hedges a slow model with the next one and keeps the first valid answer', async () => {
     const generateContent = vi.fn((req: { model: string; config: { abortSignal: AbortSignal } }) =>
       req.model === modelChain()[0]
-        ? new Promise((_, reject) => req.config.abortSignal.addEventListener('abort', () => reject(new Error('aborted'))))
+        ? new Promise((_, reject) =>
+            req.config.abortSignal.addEventListener('abort', () => reject(new Error('aborted'))),
+          )
         : Promise.resolve({ text: '{"ok": true}' }),
     );
-    const client = { models: { generateContent, generateContentStream: vi.fn() } } as unknown as GenAiLike;
-    const r = await generateJson({ system: 's', prompt: 'p', jsonSchema: {}, validate: schema, client, hedgeAfterMs: 20 });
+    const client = {
+      models: { generateContent, generateContentStream: vi.fn() },
+    } as unknown as GenAiLike;
+    const r = await generateJson({
+      system: 's',
+      prompt: 'p',
+      jsonSchema: {},
+      validate: schema,
+      client,
+      hedgeAfterMs: 20,
+    });
     expect(r?.model).toBe(modelChain()[1]);
     expect(r?.data).toEqual({ ok: true });
   });
 
   it('sweeps the chain again after a backoff when every model is briefly overloaded', async () => {
     let calls = 0;
-    const r = await hedged(['a', 'b'], (m) => (++calls > 2 && m === 'a' ? Promise.resolve('ok') : Promise.reject(new Error('503'))), {
-      hedgeAfterMs: 5,
-      deadlineMs: 2_000,
-      perAttemptMs: 500,
-      rounds: 2,
-      backoffMs: 10,
-    });
+    const r = await hedged(
+      ['a', 'b'],
+      (m) => (++calls > 2 && m === 'a' ? Promise.resolve('ok') : Promise.reject(new Error('503'))),
+      {
+        hedgeAfterMs: 5,
+        deadlineMs: 2_000,
+        perAttemptMs: 500,
+        rounds: 2,
+        backoffMs: 10,
+      },
+    );
     expect(r).toBe('ok');
   });
 
   it('gives up cleanly when every model fails', async () => {
-    const r = await hedged(['a', 'b'], () => Promise.reject(new Error('503')), { hedgeAfterMs: 5, deadlineMs: 1_000, perAttemptMs: 500 });
+    const r = await hedged(['a', 'b'], () => Promise.reject(new Error('503')), {
+      hedgeAfterMs: 5,
+      deadlineMs: 1_000,
+      perAttemptMs: 500,
+    });
     expect(r).toBeNull();
   });
 
@@ -154,11 +204,20 @@ describe('gemini wrapper', () => {
       yield { text: 'Hello ' };
       yield {
         text: 'there',
-        candidates: [{ groundingMetadata: { groundingChunks: [{ web: { uri: 'https://example.org/grap', title: 'GRAP update' } }] } }],
+        candidates: [
+          {
+            groundingMetadata: {
+              groundingChunks: [{ web: { uri: 'https://example.org/grap', title: 'GRAP update' } }],
+            },
+          },
+        ],
       };
     }
     const client = {
-      models: { generateContent: vi.fn(), generateContentStream: vi.fn().mockResolvedValue(chunks()) },
+      models: {
+        generateContent: vi.fn(),
+        generateContentStream: vi.fn().mockResolvedValue(chunks()),
+      },
     } as unknown as GenAiLike;
     let out = '';
     for await (const c of streamText({ system: 's', contents: [], search: true, client })) out += c;

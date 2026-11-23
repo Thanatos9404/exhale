@@ -24,7 +24,10 @@ export function useAir() {
 export function useLocalPlan() {
   const { household } = useAppState();
   const air = useAir();
-  const plan = useMemo(() => (air.data ? buildPlan(household, air.data) : null), [air.data, household]);
+  const plan = useMemo(
+    () => (air.data ? buildPlan(household, air.data) : null),
+    [air.data, household],
+  );
   return { ...air, plan };
 }
 

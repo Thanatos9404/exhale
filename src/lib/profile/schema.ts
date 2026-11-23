@@ -17,7 +17,17 @@ export const ageGroupSchema = z.enum(['child', 'teen', 'adult', 'senior']);
 export const conditionSchema = z.enum(['asthma', 'copd', 'heart', 'pregnancy']);
 export const exerciseSchema = z.enum(['none', 'walk', 'run', 'cycle', 'yoga']);
 export const daytimeSchema = z.enum(['home', 'office', 'school']);
-export const commuteModeSchema = z.enum(['wfh', 'walk', 'cycle', 'metro', 'bus', 'auto', 'twoWheeler', 'car', 'ev']);
+export const commuteModeSchema = z.enum([
+  'wfh',
+  'walk',
+  'cycle',
+  'metro',
+  'bus',
+  'auto',
+  'twoWheeler',
+  'car',
+  'ev',
+]);
 const hour = z.number().int().min(0).max(23);
 
 export const memberSchema = z.object({
@@ -71,9 +81,36 @@ export const DEFAULT_HOUSEHOLD: Household = {
   name: 'My household',
   standard: 'in',
   members: [
-    { id: 'you', name: 'You', ageGroup: 'adult', conditions: [], daytime: 'office', exercise: 'walk', exerciseHour: 6, exerciseMinutes: 45 },
-    { id: 'kid', name: 'Kid', ageGroup: 'child', conditions: ['asthma'], daytime: 'school', exercise: 'cycle', exerciseHour: 17, exerciseMinutes: 60 },
-    { id: 'nani', name: 'Nani', ageGroup: 'senior', conditions: ['heart'], daytime: 'home', exercise: 'walk', exerciseHour: 7, exerciseMinutes: 30 },
+    {
+      id: 'you',
+      name: 'You',
+      ageGroup: 'adult',
+      conditions: [],
+      daytime: 'office',
+      exercise: 'walk',
+      exerciseHour: 6,
+      exerciseMinutes: 45,
+    },
+    {
+      id: 'kid',
+      name: 'Kid',
+      ageGroup: 'child',
+      conditions: ['asthma'],
+      daytime: 'school',
+      exercise: 'cycle',
+      exerciseHour: 17,
+      exerciseMinutes: 60,
+    },
+    {
+      id: 'nani',
+      name: 'Nani',
+      ageGroup: 'senior',
+      conditions: ['heart'],
+      daytime: 'home',
+      exercise: 'walk',
+      exerciseHour: 7,
+      exerciseMinutes: 30,
+    },
   ],
   commute: {
     memberId: 'you',

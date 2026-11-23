@@ -2,7 +2,9 @@
 (function () {
   try {
     var pref = localStorage.getItem('exhale.theme') || 'dark';
-    var dark = pref === 'dark' || (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    var dark =
+      pref === 'dark' ||
+      (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   } catch (e) {
     document.documentElement.setAttribute('data-theme', 'dark');

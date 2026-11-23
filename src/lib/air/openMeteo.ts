@@ -72,7 +72,10 @@ const geocodeSchema = z.object({
 });
 
 export class AirDataError extends Error {
-  constructor(message: string, readonly status?: number) {
+  constructor(
+    message: string,
+    readonly status?: number,
+  ) {
     super(message);
     this.name = 'AirDataError';
   }
@@ -124,7 +127,8 @@ export function mergeHourly(
   weather?.time.forEach((t, i) => wIndex.set(t, i));
   return air.time.map((time, i) => {
     const w = wIndex.get(time);
-    const pick = (arr: (number | null)[] | undefined) => (w == null || !arr ? null : (arr[w] ?? null));
+    const pick = (arr: (number | null)[] | undefined) =>
+      w == null || !arr ? null : (arr[w] ?? null);
     return {
       time,
       pm25: air.pm2_5[i] ?? null,

@@ -6,13 +6,22 @@ import { makeSnapshot } from '@/test/fixtures';
 
 vi.mock('@/lib/air/openMeteo', async (orig) => {
   const actual = await orig<typeof import('@/lib/air/openMeteo')>();
-  return { ...actual, fetchAirSnapshot: vi.fn(async () => makeSnapshot()), searchPlaces: vi.fn(async () => []) };
+  return {
+    ...actual,
+    fetchAirSnapshot: vi.fn(async () => makeSnapshot()),
+    searchPlaces: vi.fn(async () => []),
+  };
 });
 
 // Health check and API calls never leave the test.
 vi.stubGlobal(
   'fetch',
-  vi.fn(async () => new Response(JSON.stringify({ ok: true, ai: false, model: null }), { headers: { 'content-type': 'application/json' } })),
+  vi.fn(
+    async () =>
+      new Response(JSON.stringify({ ok: true, ai: false, model: null }), {
+        headers: { 'content-type': 'application/json' },
+      }),
+  ),
 );
 
 describe('Overview page', () => {
@@ -40,7 +49,9 @@ describe('Impact page', () => {
     const coil = await screen.findByRole('switch', { name: /Apply: Swap the mosquito coil/ });
     const before = screen.getByText('Cigarettes avoided').parentElement!.textContent;
     await userEvent.click(coil);
-    await waitFor(() => expect(screen.getByText('Cigarettes avoided').parentElement!.textContent).not.toBe(before));
+    await waitFor(() =>
+      expect(screen.getByText('Cigarettes avoided').parentElement!.textContent).not.toBe(before),
+    );
     expect(screen.getByRole('button', { name: 'Apply all' })).toBeEnabled();
   });
 });
@@ -49,7 +60,13 @@ describe('Indoor lab', () => {
   it('lowers indoor PM2.5 when a purifier is added', async () => {
     const { default: Indoor } = await import('./Indoor');
     renderApp(<Indoor />);
-    const readout = () => Number(screen.getByText('Indoor PM2.5').parentElement!.querySelector('dd span')!.textContent!.replace(/,/g, ''));
+    const readout = () =>
+      Number(
+        screen
+          .getByText('Indoor PM2.5')
+          .parentElement!.querySelector('dd span')!
+          .textContent!.replace(/,/g, ''),
+      );
     await screen.findByText('Indoor PM2.5');
     const before = readout();
     await userEvent.selectOptions(screen.getByLabelText('Air purifier'), 'large');

@@ -3,7 +3,16 @@ import { Link, useLocation } from 'wouter';
 import { ArrowUpRight, Rocket } from 'lucide-react';
 import { PageBody, PageHeader } from '@/components/shell/Shell';
 import { Button, buttonStyles } from '@/components/ui/Button';
-import { AqiStatus, Avatar, Badge, Card, CardFooter, CardHeader, Dot, aqiVar } from '@/components/ui/primitives';
+import {
+  AqiStatus,
+  Avatar,
+  Badge,
+  Card,
+  CardFooter,
+  CardHeader,
+  Dot,
+  aqiVar,
+} from '@/components/ui/primitives';
 import { ErrorCard, LoadingCard } from '@/components/states';
 import { RoutineRow } from '@/components/routine';
 import { useAqiSeries, useLocalPlan } from '@/hooks/useAir';
@@ -11,7 +20,12 @@ import { useAppState } from '@/state/AppState';
 import { useDeployments } from '@/state/Deployments';
 import { aqiCategory, POLLUTANT_LABEL, type AqiLevel } from '@/lib/air/aqi';
 import { WHO_PM25_24H, cigarettesPerDay } from '@/lib/science/exposure';
-import { DISPERSION_LABEL, dispersionClass, isLidHour, ventilationCoefficient } from '@/lib/science/meteo';
+import {
+  DISPERSION_LABEL,
+  dispersionClass,
+  isLidHour,
+  ventilationCoefficient,
+} from '@/lib/science/meteo';
 import { dayHourLabel, fmtCig, fmtDec, fmtDose, fmtInt, relativeTime } from '@/lib/format';
 import { hasWebGL } from '@/hooks/useThemeColors';
 import { cn } from '@/lib/cn';
@@ -30,8 +44,21 @@ export default function Overview() {
   const [offset, setOffset] = useState(0);
   const webgl = useMemo(() => hasWebGL(), []);
 
-  if (isError) return <Page><ErrorCard message={error instanceof Error ? error.message : 'Unknown error'} onRetry={() => void refetch()} /></Page>;
-  if (isLoading || !air || !plan || !aqi) return <Page><LoadingCard className="h-[420px]" /></Page>;
+  if (isError)
+    return (
+      <Page>
+        <ErrorCard
+          message={error instanceof Error ? error.message : 'Unknown error'}
+          onRetry={() => void refetch()}
+        />
+      </Page>
+    );
+  if (isLoading || !air || !plan || !aqi)
+    return (
+      <Page>
+        <LoadingCard className="h-[420px]" />
+      </Page>
+    );
 
   const maxOffset = Math.min(SCRUB_HOURS - 1, air.hourly.length - 1 - air.nowIndex);
   const idx = air.nowIndex + Math.min(offset, maxOffset);
@@ -73,12 +100,19 @@ export default function Overview() {
           <div className="p-4 md:p-5">
             <div className="bg-grid relative aspect-[16/11] overflow-hidden rounded-lg border border-line bg-surface-2">
               {webgl ? (
-                <Suspense fallback={<div className="absolute inset-0 grid place-items-center text-xs text-subtle">Loading 3D air column…</div>}>
+                <Suspense
+                  fallback={
+                    <div className="absolute inset-0 grid place-items-center text-xs text-subtle">
+                      Loading 3D air column…
+                    </div>
+                  }
+                >
                   <AirColumn pm25={pm} blh={h.blh ?? 800} wind={h.wind ?? 5} level={level} />
                 </Suspense>
               ) : (
                 <div className="absolute inset-0 grid place-items-center p-6 text-center text-[13px] text-muted">
-                  3D view needs WebGL. Mixing height {fmtInt(h.blh ?? 0)} m, PM2.5 {fmtInt(pm)} µg/m³.
+                  3D view needs WebGL. Mixing height {fmtInt(h.blh ?? 0)} m, PM2.5 {fmtInt(pm)}{' '}
+                  µg/m³.
                 </div>
               )}
               <div className="pointer-events-none absolute top-3 left-3 flex items-center gap-2">
@@ -112,7 +146,12 @@ export default function Overview() {
                 aria-valuetext={`${label}: PM2.5 ${fmtInt(pm)} micrograms per cubic metre, mixing height ${fmtInt(h.blh ?? 0)} metres`}
                 className="w-full"
               />
-              <HourStrip air={air} levels={aqi.instant.map((a) => aqiCategory(a.aqi, household.standard).level)} active={idx} onPick={(i) => setOffset(i - air.nowIndex)} />
+              <HourStrip
+                air={air}
+                levels={aqi.instant.map((a) => aqiCategory(a.aqi, household.standard).level)}
+                active={idx}
+                onPick={(i) => setOffset(i - air.nowIndex)}
+              />
             </div>
           </div>
 
@@ -120,34 +159,74 @@ export default function Overview() {
           <div className="border-t border-line p-5 lg:border-t-0 lg:border-l">
             <dl className="grid grid-cols-2 gap-x-6 gap-y-5">
               <div className="col-span-2">
-                <dt className="text-[13px] text-muted">Air quality index · {household.standard === 'in' ? 'India NAQI' : 'US EPA'}</dt>
+                <dt className="text-[13px] text-muted">
+                  Air quality index · {household.standard === 'in' ? 'India NAQI' : 'US EPA'}
+                </dt>
                 <dd className="mt-1 flex items-baseline gap-3">
-                  <span className="tabular text-[44px] leading-none font-semibold tracking-[-0.04em]" style={{ color: aqiVar(nowCat.level) }}>
+                  <span
+                    className="tabular text-[44px] leading-none font-semibold tracking-[-0.04em]"
+                    style={{ color: aqiVar(nowCat.level) }}
+                  >
                     {official.aqi}
                   </span>
                   <AqiStatus level={nowCat.level} label={nowCat.label} />
                 </dd>
                 <dd className="mt-2 text-[13px] text-muted">{nowCat.advice}</dd>
               </div>
-              <Detail label="PM2.5 now" value={`${fmtInt(air.current.pm25 ?? 0)} µg/m³`} sub={`${fmtDec((air.current.pm25 ?? 0) / WHO_PM25_24H, 1)}× WHO daily guideline`} />
-              <Detail label="Dominant pollutant" value={POLLUTANT_LABEL[official.dominant]} sub="Highest sub-index" />
-              <Detail label="Mixing height" value={`${fmtInt(plan.current.blh ?? 0)} m`} sub={`Wind ${fmtDec(plan.current.wind ?? 0, 1)} km/h`} />
+              <Detail
+                label="PM2.5 now"
+                value={`${fmtInt(air.current.pm25 ?? 0)} µg/m³`}
+                sub={`${fmtDec((air.current.pm25 ?? 0) / WHO_PM25_24H, 1)}× WHO daily guideline`}
+              />
+              <Detail
+                label="Dominant pollutant"
+                value={POLLUTANT_LABEL[official.dominant]}
+                sub="Highest sub-index"
+              />
+              <Detail
+                label="Mixing height"
+                value={`${fmtInt(plan.current.blh ?? 0)} m`}
+                sub={`Wind ${fmtDec(plan.current.wind ?? 0, 1)} km/h`}
+              />
               <Detail
                 label="Dispersion"
                 value={
                   <span className="inline-flex items-center gap-2">
-                    <Dot className={plan.current.dispersion === 'good' ? 'bg-green' : plan.current.dispersion === 'moderate' ? 'bg-amber' : 'bg-red'} />
-                    {plan.current.dispersion ? DISPERSION_LABEL[plan.current.dispersion] : 'Unknown'}
+                    <Dot
+                      className={
+                        plan.current.dispersion === 'good'
+                          ? 'bg-green'
+                          : plan.current.dispersion === 'moderate'
+                            ? 'bg-amber'
+                            : 'bg-red'
+                      }
+                    />
+                    {plan.current.dispersion
+                      ? DISPERSION_LABEL[plan.current.dispersion]
+                      : 'Unknown'}
                   </span>
                 }
-                sub={plan.current.ventilationCoefficient != null ? `${fmtInt(plan.current.ventilationCoefficient)} m²/s ventilation` : undefined}
+                sub={
+                  plan.current.ventilationCoefficient != null
+                    ? `${fmtInt(plan.current.ventilationCoefficient)} m²/s ventilation`
+                    : undefined
+                }
               />
-              <Detail label="Breathing this all day" value={`${fmtCig(cigarettesPerDay(air.current.pm25 ?? 0))} cigarettes`} sub="Berkeley Earth equivalence" />
-              <Detail label="Source" value="Open-Meteo · CAMS" sub={`Updated ${relativeTime(air.fetchedAt)}`} />
+              <Detail
+                label="Breathing this all day"
+                value={`${fmtCig(cigarettesPerDay(air.current.pm25 ?? 0))} cigarettes`}
+                sub="Berkeley Earth equivalence"
+              />
+              <Detail
+                label="Source"
+                value="Open-Meteo · CAMS"
+                sub={`Updated ${relativeTime(air.fetchedAt)}`}
+              />
             </dl>
             {offset !== 0 && disp && (
               <p className="mt-5 rounded-lg border border-line bg-surface-2 p-3 text-[13px] text-muted">
-                At {label}: {DISPERSION_LABEL[disp].toLowerCase()}, AQI {instant.aqi} hourly, PM2.5 {fmtInt(pm)} µg/m³.
+                At {label}: {DISPERSION_LABEL[disp].toLowerCase()}, AQI {instant.aqi} hourly, PM2.5{' '}
+                {fmtInt(pm)} µg/m³.
               </p>
             )}
           </div>
@@ -156,14 +235,21 @@ export default function Overview() {
           <span>
             {plan.cleanWindow ? (
               <>
-                Cleanest hour today: <strong className="font-medium text-fg">{plan.cleanWindow.start}</strong> at {plan.cleanWindow.pm25} µg/m³
+                Cleanest hour today:{' '}
+                <strong className="font-medium text-fg">{plan.cleanWindow.start}</strong> at{' '}
+                {plan.cleanWindow.pm25} µg/m³
               </>
             ) : (
               'No clean window found in the next 24 hours'
             )}
-            {plan.lid.stagnantHours > 0 && <> · Smog lid for {plan.lid.stagnantHours} of the next 24 h</>}
+            {plan.lid.stagnantHours > 0 && (
+              <> · Smog lid for {plan.lid.stagnantHours} of the next 24 h</>
+            )}
           </span>
-          <Link href="/forecast" className="inline-flex items-center gap-1 font-medium text-fg hover:underline">
+          <Link
+            href="/forecast"
+            className="inline-flex items-center gap-1 font-medium text-fg hover:underline"
+          >
             Open forecast <ArrowUpRight size={14} aria-hidden="true" />
           </Link>
         </CardFooter>
@@ -173,7 +259,11 @@ export default function Overview() {
         <Card>
           <CardHeader
             title="Today’s routine"
-            description={latest ? `Explained by ${latest.source === 'gemini' ? 'Gemini' : 'the rules engine'} ${relativeTime(latest.at)}` : 'Live from the planning engine. Deploy to add Gemini’s explanations.'}
+            description={
+              latest
+                ? `Explained by ${latest.source === 'gemini' ? 'Gemini' : 'the rules engine'} ${relativeTime(latest.at)}`
+                : 'Live from the planning engine. Deploy to add Gemini’s explanations.'
+            }
             action={
               <Link href="/routine" className="text-[13px] font-medium text-fg hover:underline">
                 View all {plan.items.length}
@@ -182,7 +272,15 @@ export default function Overview() {
           />
           <ul className="border-t border-line">
             {plan.items.slice(0, 5).map((item) => (
-              <RoutineRow key={item.id} item={item} members={household.members} why={aiWhy.get(item.id)} done={done.has(item.id)} onToggleDone={() => toggleDone(item.id)} compact />
+              <RoutineRow
+                key={item.id}
+                item={item}
+                members={household.members}
+                why={aiWhy.get(item.id)}
+                done={done.has(item.id)}
+                onToggleDone={() => toggleDone(item.id)}
+                compact
+              />
             ))}
           </ul>
         </Card>
@@ -192,7 +290,15 @@ export default function Overview() {
   );
 }
 
-function Page({ children, description, actions }: { children: React.ReactNode; description?: string; actions?: React.ReactNode }) {
+function Page({
+  children,
+  description,
+  actions,
+}: {
+  children: React.ReactNode;
+  description?: string;
+  actions?: React.ReactNode;
+}) {
   return (
     <>
       <PageHeader title="Overview" description={description} actions={actions} />
@@ -201,7 +307,15 @@ function Page({ children, description, actions }: { children: React.ReactNode; d
   );
 }
 
-function Detail({ label, value, sub }: { label: string; value: React.ReactNode; sub?: string | undefined }) {
+function Detail({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: React.ReactNode;
+  sub?: string | undefined;
+}) {
   return (
     <div className="min-w-0">
       <dt className="text-[13px] text-muted">{label}</dt>
@@ -211,12 +325,26 @@ function Detail({ label, value, sub }: { label: string; value: React.ReactNode; 
   );
 }
 
-function HourStrip({ air, levels, active, onPick }: { air: NonNullable<ReturnType<typeof useLocalPlan>['data']>; levels: AqiLevel[]; active: number; onPick: (i: number) => void }) {
+function HourStrip({
+  air,
+  levels,
+  active,
+  onPick,
+}: {
+  air: NonNullable<ReturnType<typeof useLocalPlan>['data']>;
+  levels: AqiLevel[];
+  active: number;
+  onPick: (i: number) => void;
+}) {
   const cells = [];
   for (let i = air.nowIndex; i < Math.min(air.hourly.length, air.nowIndex + 24); i++) cells.push(i);
   return (
     <div className="mt-3">
-      <div className="flex h-6 gap-[2px]" role="group" aria-label="Next 24 hours by air quality. Hatched hours are under a smog lid.">
+      <div
+        className="flex h-6 gap-[2px]"
+        role="group"
+        aria-label="Next 24 hours by air quality. Hatched hours are under a smog lid."
+      >
         {cells.map((i) => {
           const hr = air.hourly[i]!;
           return (
@@ -226,11 +354,17 @@ function HourStrip({ air, levels, active, onPick }: { air: NonNullable<ReturnTyp
               onClick={() => onPick(i)}
               aria-label={`${hr.time.slice(11, 16)}, PM2.5 ${fmtInt(hr.pm25 ?? 0)}${isLidHour(hr) ? ', smog lid' : ''}`}
               aria-pressed={i === active}
-              className={cn('relative flex-1 rounded-[3px] transition-transform duration-150 hover:scale-y-110', i === active && 'ring-2 ring-fg ring-offset-1 ring-offset-surface')}
+              className={cn(
+                'relative flex-1 rounded-[3px] transition-transform duration-150 hover:scale-y-110',
+                i === active && 'ring-2 ring-fg ring-offset-1 ring-offset-surface',
+              )}
               style={{ background: aqiVar(levels[i]!) }}
             >
               {isLidHour(hr) && (
-                <span aria-hidden="true" className="absolute inset-0 rounded-[3px] bg-[repeating-linear-gradient(135deg,rgb(0_0_0/0.28)_0_2px,transparent_2px_5px)]" />
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-0 rounded-[3px] bg-[repeating-linear-gradient(135deg,rgb(0_0_0/0.28)_0_2px,transparent_2px_5px)]"
+                />
               )}
             </button>
           );
@@ -245,11 +379,20 @@ function HourStrip({ air, levels, active, onPick }: { air: NonNullable<ReturnTyp
   );
 }
 
-function BudgetCard({ members, totals }: { members: MemberSummary[]; totals: { exposureCutPct: number; cigarettesAvoided: number } }) {
+function BudgetCard({
+  members,
+  totals,
+}: {
+  members: MemberSummary[];
+  totals: { exposureCutPct: number; cigarettesAvoided: number };
+}) {
   const maxRatio = Math.max(1, ...members.map((m) => m.baselineDoseUg / Math.max(1, m.budgetUg)));
   return (
     <Card>
-      <CardHeader title="Exposure budget" description="Today’s inhaled PM2.5 against breathing WHO-guideline air on the same schedule." />
+      <CardHeader
+        title="Exposure budget"
+        description="Today’s inhaled PM2.5 against breathing WHO-guideline air on the same schedule."
+      />
       <ul className="space-y-5 px-5 pb-5">
         {members.map((m) => {
           const before = m.baselineDoseUg / Math.max(1, m.budgetUg);
@@ -262,16 +405,30 @@ function BudgetCard({ members, totals }: { members: MemberSummary[]; totals: { e
                   <span className="truncate">{m.name}</span>
                 </span>
                 <span className="tabular text-xs text-muted">
-                  {fmtDec(before, 1)}× → <strong className="font-semibold text-fg">{fmtDec(after, 1)}×</strong>
+                  {fmtDec(before, 1)}× →{' '}
+                  <strong className="font-semibold text-fg">{fmtDec(after, 1)}×</strong>
                 </span>
               </div>
-              <div className="relative mt-2 h-2 overflow-hidden rounded-full bg-hover" aria-hidden="true">
-                <div className="absolute inset-y-0 left-0 rounded-full bg-red/45" style={{ width: `${(before / maxRatio) * 100}%` }} />
-                <div className="absolute inset-y-0 left-0 rounded-full bg-fg" style={{ width: `${(after / maxRatio) * 100}%` }} />
-                <div className="absolute inset-y-0 w-px bg-green" style={{ left: `${(1 / maxRatio) * 100}%` }} />
+              <div
+                className="relative mt-2 h-2 overflow-hidden rounded-full bg-hover"
+                aria-hidden="true"
+              >
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full bg-red/45"
+                  style={{ width: `${(before / maxRatio) * 100}%` }}
+                />
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full bg-fg"
+                  style={{ width: `${(after / maxRatio) * 100}%` }}
+                />
+                <div
+                  className="absolute inset-y-0 w-px bg-green"
+                  style={{ left: `${(1 / maxRatio) * 100}%` }}
+                />
               </div>
               <p className="sr-only">
-                {m.name}: {fmtDec(before, 1)} times the WHO budget as usual, {fmtDec(after, 1)} times with the plan.
+                {m.name}: {fmtDec(before, 1)} times the WHO budget as usual, {fmtDec(after, 1)}{' '}
+                times with the plan.
               </p>
               <div className="tabular mt-1.5 flex justify-between text-xs text-subtle">
                 <span>
@@ -285,7 +442,8 @@ function BudgetCard({ members, totals }: { members: MemberSummary[]; totals: { e
       </ul>
       <CardFooter>
         <span>
-          Plan cuts household dose by <strong className="font-semibold text-fg">{Math.round(totals.exposureCutPct)}%</strong>
+          Plan cuts household dose by{' '}
+          <strong className="font-semibold text-fg">{Math.round(totals.exposureCutPct)}%</strong>
         </span>
         <span className="tabular">−{fmtCig(totals.cigarettesAvoided)} cigarettes</span>
       </CardFooter>

@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { z } from 'zod';
 import { requestPlan } from '@/lib/api';
 import type { PlanResponse } from '@/lib/apiTypes';
@@ -52,7 +60,9 @@ const deploymentSchema = z.object({
   cutPct: z.number(),
   source: z.enum(['gemini', 'claude', 'rules']),
   model: z.string().nullable(),
-  response: z.object({ plan: z.object({ items: z.array(z.unknown()) }).passthrough() }).passthrough(),
+  response: z
+    .object({ plan: z.object({ items: z.array(z.unknown()) }).passthrough() })
+    .passthrough(),
 });
 
 const parseHistory = (raw: unknown) => {
@@ -73,8 +83,12 @@ export function DeploymentsProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>('idle');
   const [logs, setLogs] = useState<LogLine[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [history, setHistory] = useState<Deployment[]>(() => readStored(KEYS.deployments, parseHistory) ?? []);
-  const [done, setDone] = useState<Set<string>>(() => readStored(KEYS.done, parseDone) ?? new Set());
+  const [history, setHistory] = useState<Deployment[]>(
+    () => readStored(KEYS.deployments, parseHistory) ?? [],
+  );
+  const [done, setDone] = useState<Set<string>>(
+    () => readStored(KEYS.done, parseDone) ?? new Set(),
+  );
   const running = useRef(false);
 
   const log = useCallback((kind: LogKind, text: string) => {
@@ -92,7 +106,10 @@ export function DeploymentsProvider({ children }: { children: ReactNode }) {
       log('info', `Fetching live air quality for ${place.label} (Open-Meteo, CAMS model)`);
       const air = await fetchAirSnapshot(place);
       const now = air.hourly[air.nowIndex];
-      log('ok', `${air.hourly.length} hourly readings. Now PM2.5 ${Math.round(now?.pm25 ?? 0)} µg/m³, mixing height ${Math.round(now?.blh ?? 0)} m`);
+      log(
+        'ok',
+        `${air.hourly.length} hourly readings. Now PM2.5 ${Math.round(now?.pm25 ?? 0)} µg/m³, mixing height ${Math.round(now?.blh ?? 0)} m`,
+      );
       await sleep(pace);
       const local = buildPlan(household, air);
       log(
@@ -102,15 +119,32 @@ export function DeploymentsProvider({ children }: { children: ReactNode }) {
           : 'No smog lid in the next 24 h',
       );
       await sleep(pace);
-      log('info', `Simulating ${household.members.length} people × 24 h as usual: ${local.totals.baselineDoseUg.toLocaleString('en-IN')} µg inhaled`);
+      log(
+        'info',
+        `Simulating ${household.members.length} people × 24 h as usual: ${local.totals.baselineDoseUg.toLocaleString('en-IN')} µg inhaled`,
+      );
       await sleep(pace);
       const c = household.commute;
-      log('info', `Testing ${local.items.length} changes (commute: ${MODE_LABEL[c.mode].toLowerCase()}, ${c.distanceKm} km)`);
+      log(
+        'info',
+        `Testing ${local.items.length} changes (commute: ${MODE_LABEL[c.mode].toLowerCase()}, ${c.distanceKm} km)`,
+      );
       await sleep(pace);
-      log('ai', 'Asking Gemini to explain the plan and tailor indoor hacks and swaps (Claude Haiku as fallback)');
+      log(
+        'ai',
+        'Asking Gemini to explain the plan and tailor indoor hacks and swaps (Claude Haiku as fallback)',
+      );
       const response = await requestPlan(place, household);
-      if (response.source === 'gemini') log('ok', `Gemini (${response.model}) wrote ${response.ai?.items.length ?? 0} explanations`);
-      else if (response.source === 'claude') log('ok', `Gemini busy, Claude (${response.model}) wrote ${response.ai?.items.length ?? 0} explanations`);
+      if (response.source === 'gemini')
+        log(
+          'ok',
+          `Gemini (${response.model}) wrote ${response.ai?.items.length ?? 0} explanations`,
+        );
+      else if (response.source === 'claude')
+        log(
+          'ok',
+          `Gemini busy, Claude (${response.model}) wrote ${response.ai?.items.length ?? 0} explanations`,
+        );
       else log('warn', 'AI providers unavailable, using the rules engine explanations');
       const t = response.plan.totals;
       log(

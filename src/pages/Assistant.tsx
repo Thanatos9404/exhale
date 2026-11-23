@@ -1,4 +1,13 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from 'react';
 import { ArrowUp, Globe, Square, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -19,7 +28,10 @@ const Markdown = lazy(() => import('react-markdown'));
 
 const MAX_CHARS = 2000;
 const parseChat = (raw: unknown) => {
-  const r = z.array(z.object({ role: z.enum(['user', 'model']), text: z.string().max(8000) })).max(30).safeParse(raw);
+  const r = z
+    .array(z.object({ role: z.enum(['user', 'model']), text: z.string().max(8000) }))
+    .max(30)
+    .safeParse(raw);
   return r.success ? r.data : null;
 };
 
@@ -28,7 +40,9 @@ export default function Assistant() {
   const { plan } = useLocalPlan();
   const health = useHealth();
   const { takePendingQuestion, pendingQuestion } = useCommandMenu();
-  const [messages, setMessages] = useState<ChatMessage[]>(() => readStored(KEYS.chat, parseChat) ?? []);
+  const [messages, setMessages] = useState<ChatMessage[]>(
+    () => readStored(KEYS.chat, parseChat) ?? [],
+  );
   const [draft, setDraft] = useState('');
   const [search, setSearch] = useState(false);
   const [streaming, setStreaming] = useState<string | null>(null);
@@ -58,7 +72,10 @@ export default function Assistant() {
           (soFar) => setStreaming(soFar),
           ctrl.signal,
         );
-        const next: ChatMessage[] = [...history, { role: 'model', text: answer || 'No answer came back. Please try again.' }];
+        const next: ChatMessage[] = [
+          ...history,
+          { role: 'model', text: answer || 'No answer came back. Please try again.' },
+        ];
         setMessages(next);
         writeStored(KEYS.chat, next.slice(-30));
         setAnnounce('Answer ready');
@@ -96,13 +113,18 @@ export default function Assistant() {
     }
   };
 
-  const sensitive = household.members.find((m) => m.conditions.length > 0 || m.ageGroup === 'child') ?? household.members[0]!;
+  const sensitive =
+    household.members.find((m) => m.conditions.length > 0 || m.ageGroup === 'child') ??
+    household.members[0]!;
   const suggestions = [
     { q: `When can ${sensitive.name} safely go outside today?`, search: false },
     { q: 'Is my commute better by metro or car today, and by how much?', search: false },
     { q: 'How do I build a box-fan air filter at home?', search: false },
     { q: 'Why is the air worst at night and early morning in winter?', search: false },
-    { q: `What pollution restrictions are in force in ${place.label.split(',')[0]} today?`, search: true },
+    {
+      q: `What pollution restrictions are in force in ${place.label.split(',')[0]} today?`,
+      search: true,
+    },
   ];
 
   const aiOn = health.data?.ai === true;
@@ -132,15 +154,24 @@ export default function Assistant() {
             <div className="sr-only" role="status" aria-live="polite">
               {announce}
             </div>
-            <div className="flex-1 overflow-y-auto px-4 py-6 md:px-6" role="log" aria-label="Conversation">
+            <div
+              className="flex-1 overflow-y-auto px-4 py-6 md:px-6"
+              role="log"
+              aria-label="Conversation"
+            >
               {messages.length === 0 && streaming === null ? (
                 <div className="mx-auto flex max-w-[560px] flex-col items-center pt-6 text-center">
                   <div className="text-fg">
                     <ParticleOrb size={72} active />
                   </div>
-                  <h2 className="mt-4 text-xl font-semibold tracking-[-0.02em] text-fg">Ask about your air</h2>
+                  <h2 className="mt-4 text-xl font-semibold tracking-[-0.02em] text-fg">
+                    Ask about your air
+                  </h2>
                   <p className="mt-1 text-[13px] text-muted">
-                    {plan ? `${plan.placeLabel}: AQI ${plan.risk.aqi}, ${plan.risk.label.toLowerCase()}.` : 'Loading live data…'} I know your household and today’s plan.
+                    {plan
+                      ? `${plan.placeLabel}: AQI ${plan.risk.aqi}, ${plan.risk.label.toLowerCase()}.`
+                      : 'Loading live data…'}{' '}
+                    I know your household and today’s plan.
                   </p>
                   <ul className="mt-6 grid w-full gap-2 sm:grid-cols-2">
                     {suggestions.map((s) => (
@@ -153,7 +184,13 @@ export default function Assistant() {
                           }}
                           className="press flex h-full w-full items-start gap-2 rounded-lg border border-line bg-surface px-3 py-2.5 text-left text-[13px] text-fg transition-colors hover:bg-hover"
                         >
-                          {s.search && <Globe size={13} aria-label="Uses web search" className="mt-0.5 shrink-0 text-blue" />}
+                          {s.search && (
+                            <Globe
+                              size={13}
+                              aria-label="Uses web search"
+                              className="mt-0.5 shrink-0 text-blue"
+                            />
+                          )}
                           {s.q}
                         </button>
                       </li>
@@ -165,7 +202,9 @@ export default function Assistant() {
                   {messages.map((m, i) => (
                     <Message key={i} message={m} />
                   ))}
-                  {streaming !== null && <Message message={{ role: 'model', text: streaming }} streaming />}
+                  {streaming !== null && (
+                    <Message message={{ role: 'model', text: streaming }} streaming />
+                  )}
                 </ol>
               )}
               <div ref={endRef} />
@@ -189,8 +228,16 @@ export default function Assistant() {
                 />
                 <div className="flex items-center gap-3 px-2 pb-2">
                   <div className="inline-flex items-center gap-2 rounded-md px-1.5 py-1 text-xs text-muted">
-                    <Switch id="web-search" checked={search} onChange={setSearch} label="Search the web for current advisories" />
-                    <label htmlFor="web-search" className="inline-flex cursor-pointer items-center gap-1.5">
+                    <Switch
+                      id="web-search"
+                      checked={search}
+                      onChange={setSearch}
+                      label="Search the web for current advisories"
+                    />
+                    <label
+                      htmlFor="web-search"
+                      className="inline-flex cursor-pointer items-center gap-1.5"
+                    >
                       <Globe size={13} aria-hidden="true" /> Web search
                     </label>
                   </div>
@@ -198,31 +245,76 @@ export default function Assistant() {
                     {draft.length > MAX_CHARS * 0.8 ? `${draft.length}/${MAX_CHARS}` : ''}
                   </span>
                   {streaming !== null ? (
-                    <Button size="sm" variant="secondary" onClick={() => abortRef.current?.abort()} leading={<Square size={12} aria-hidden="true" />}>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => abortRef.current?.abort()}
+                      leading={<Square size={12} aria-hidden="true" />}
+                    >
                       Stop
                     </Button>
                   ) : (
-                    <Button size="sm" variant="primary" type="submit" disabled={!draft.trim()} aria-label="Send question" className="size-8 rounded-full px-0">
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      type="submit"
+                      disabled={!draft.trim()}
+                      aria-label="Send question"
+                      className="size-8 rounded-full px-0"
+                    >
                       <ArrowUp size={16} aria-hidden="true" />
                     </Button>
                   )}
                 </div>
               </div>
-              <p className="mt-2 px-1 text-[11px] text-subtle">General guidance, not medical advice. For trouble breathing, seek care now.</p>
+              <p className="mt-2 px-1 text-[11px] text-subtle">
+                General guidance, not medical advice. For trouble breathing, seek care now.
+              </p>
             </form>
           </Card>
 
           <Card className="h-fit">
-            <CardHeader title="What Exhale knows" description="Sent with your question, used only to answer it. Nothing is stored on a server." />
+            <CardHeader
+              title="What Exhale knows"
+              description="Sent with your question, used only to answer it. Nothing is stored on a server."
+            />
             <dl className="space-y-3 px-5 pb-5 text-[13px]">
-              <Row label="Model" value={<span className="inline-flex items-center gap-1.5"><Dot className={aiOn ? 'bg-green' : 'bg-amber'} />{aiOn ? health.data?.model : 'Rules engine (no Gemini key)'}</span>} />
+              <Row
+                label="Model"
+                value={
+                  <span className="inline-flex items-center gap-1.5">
+                    <Dot className={aiOn ? 'bg-green' : 'bg-amber'} />
+                    {aiOn ? health.data?.model : 'Rules engine (no Gemini key)'}
+                  </span>
+                }
+              />
               <Row label="Place" value={place.label} />
               {plan && (
                 <>
-                  <Row label="Air now" value={`AQI ${plan.risk.aqi} · PM2.5 ${fmtInt(plan.current.pm25 ?? 0)} µg/m³`} />
-                  <Row label="Smog lid" value={plan.lid.spans[0] ? `${plan.lid.spans[0].start} to ${plan.lid.spans[0].end} at ${plan.lid.spans[0].minBlh} m` : 'None'} />
-                  <Row label="Cleanest hour" value={plan.cleanWindow ? `${plan.cleanWindow.start} · ${plan.cleanWindow.pm25} µg/m³` : 'n/a'} />
-                  <Row label="Plan" value={`${plan.items.length} actions · −${Math.round(plan.totals.exposureCutPct)}% dose`} />
+                  <Row
+                    label="Air now"
+                    value={`AQI ${plan.risk.aqi} · PM2.5 ${fmtInt(plan.current.pm25 ?? 0)} µg/m³`}
+                  />
+                  <Row
+                    label="Smog lid"
+                    value={
+                      plan.lid.spans[0]
+                        ? `${plan.lid.spans[0].start} to ${plan.lid.spans[0].end} at ${plan.lid.spans[0].minBlh} m`
+                        : 'None'
+                    }
+                  />
+                  <Row
+                    label="Cleanest hour"
+                    value={
+                      plan.cleanWindow
+                        ? `${plan.cleanWindow.start} · ${plan.cleanWindow.pm25} µg/m³`
+                        : 'n/a'
+                    }
+                  />
+                  <Row
+                    label="Plan"
+                    value={`${plan.items.length} actions · −${Math.round(plan.totals.exposureCutPct)}% dose`}
+                  />
                 </>
               )}
               <Row
@@ -259,7 +351,9 @@ function Message({ message, streaming = false }: { message: ChatMessage; streami
   if (message.role === 'user') {
     return (
       <li className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-hover px-4 py-2.5 text-sm whitespace-pre-wrap text-fg">{message.text}</div>
+        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-hover px-4 py-2.5 text-sm whitespace-pre-wrap text-fg">
+          {message.text}
+        </div>
       </li>
     );
   }
@@ -287,7 +381,12 @@ function Message({ message, streaming = false }: { message: ChatMessage; streami
         ) : (
           <p className="text-muted">Thinking with your live data…</p>
         )}
-        {streaming && message.text && <span aria-hidden="true" className="ml-0.5 inline-block h-4 w-1.5 translate-y-0.5 animate-[exhale-caret_1s_steps(1)_infinite] bg-fg" />}
+        {streaming && message.text && (
+          <span
+            aria-hidden="true"
+            className="ml-0.5 inline-block h-4 w-1.5 translate-y-0.5 animate-[exhale-caret_1s_steps(1)_infinite] bg-fg"
+          />
+        )}
       </div>
     </li>
   );

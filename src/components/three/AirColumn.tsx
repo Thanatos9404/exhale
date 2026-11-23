@@ -80,7 +80,13 @@ const fragment = /* glsl */ `
   }
 `;
 
-function Smog({ pm25, blh, wind, color, animate }: Omit<AirColumnProps, 'level'> & { color: string; animate: boolean }) {
+function Smog({
+  pm25,
+  blh,
+  wind,
+  color,
+  animate,
+}: Omit<AirColumnProps, 'level'> & { color: string; animate: boolean }) {
   const material = useRef<THREE.ShaderMaterial>(null);
   const geometry = useMemo(() => {
     const rand = seeded(7);
@@ -148,7 +154,13 @@ function Lid({ blh, color }: { blh: number; color: string }) {
     <group ref={group} position={[0, lidY(blh), 0]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[RADIUS + 0.15, 96]} />
-        <meshBasicMaterial color={color} transparent opacity={0.1} side={THREE.DoubleSide} depthWrite={false} />
+        <meshBasicMaterial
+          color={color}
+          transparent
+          opacity={0.1}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+        />
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[RADIUS + 0.1, RADIUS + 0.16, 128]} />
@@ -170,7 +182,12 @@ function City({ color, ground }: { color: string; ground: string }) {
         const d = Math.hypot(x, z);
         if (d > RADIUS - 0.4 || rand() < 0.18) continue;
         const centre = 1 - d / RADIUS;
-        out.push({ x, z, w: 0.38 + rand() * 0.18, h: 0.15 + rand() * 0.55 + centre * centre * 1.1 * rand() });
+        out.push({
+          x,
+          z,
+          w: 0.38 + rand() * 0.18,
+          h: 0.15 + rand() * 0.55 + centre * centre * 1.1 * rand(),
+        });
       }
     }
     return out;
@@ -180,7 +197,11 @@ function City({ color, ground }: { color: string; ground: string }) {
     if (!mesh.current) return;
     const m = new THREE.Matrix4();
     blocks.forEach((b, i) => {
-      m.compose(new THREE.Vector3(b.x, b.h / 2, b.z), new THREE.Quaternion(), new THREE.Vector3(b.w, b.h, b.w));
+      m.compose(
+        new THREE.Vector3(b.x, b.h / 2, b.z),
+        new THREE.Quaternion(),
+        new THREE.Vector3(b.w, b.h, b.w),
+      );
       mesh.current!.setMatrixAt(i, m);
     });
     mesh.current.instanceMatrix.needsUpdate = true;
@@ -218,7 +239,13 @@ export default function AirColumn(props: AirColumnProps) {
         <ambientLight intensity={0.45} />
         <directionalLight position={[5, 8, 3]} intensity={0.9} />
         <City color={v.subtle} ground={v.line} />
-        <Smog pm25={props.pm25} blh={props.blh} wind={props.wind} color={v[`aqi-${props.level}`]} animate={animate} />
+        <Smog
+          pm25={props.pm25}
+          blh={props.blh}
+          wind={props.wind}
+          color={v[`aqi-${props.level}`]}
+          animate={animate}
+        />
         <Lid blh={props.blh} color={v.amber} />
         <OrbitControls
           target={[0, 1.2, 0]}

@@ -31,7 +31,9 @@
   --red-soft: #ffebee;
   --focus: #0068d6;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 2px 8px rgb(0 0 0 / 0.04);
-  --shadow-pop: 0 1px 1px rgb(0 0 0 / 0.02), 0 8px 16px -4px rgb(0 0 0 / 0.08), 0 24px 32px -8px rgb(0 0 0 / 0.1);
+  --shadow-pop:
+    0 1px 1px rgb(0 0 0 / 0.02), 0 8px 16px -4px rgb(0 0 0 / 0.08),
+    0 24px 32px -8px rgb(0 0 0 / 0.1);
   --diff-add: #e6ffec;
   --diff-del: #ffebe9;
   /* AQI ramp, light surfaces */
@@ -173,8 +175,16 @@
   }
   .bg-grid {
     background-image:
-      linear-gradient(to right, color-mix(in oklab, var(--fg) 6%, transparent) 1px, transparent 1px),
-      linear-gradient(to bottom, color-mix(in oklab, var(--fg) 6%, transparent) 1px, transparent 1px);
+      linear-gradient(
+        to right,
+        color-mix(in oklab, var(--fg) 6%, transparent) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        to bottom,
+        color-mix(in oklab, var(--fg) 6%, transparent) 1px,
+        transparent 1px
+      );
     background-size: 24px 24px;
   }
 }

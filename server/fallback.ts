@@ -8,7 +8,11 @@ import type { PlanResult, RoutineItem } from '../src/lib/planner/engine.js';
 const bullet = (i: RoutineItem) =>
   `- **${i.time ? `${i.time} ` : ''}${i.title}.** ${i.detail}${i.impact.doseSavedUg > 0 ? ` Saves about ${i.impact.doseSavedUg.toLocaleString('en-IN')} µg (${i.impact.cigarettesAvoided} cigarette-equivalents).` : ''}`;
 
-const INTENTS: { test: RegExp; pick: (p: PlanResult) => RoutineItem[]; intro: (p: PlanResult) => string }[] = [
+const INTENTS: {
+  test: RegExp;
+  pick: (p: PlanResult) => RoutineItem[];
+  intro: (p: PlanResult) => string;
+}[] = [
   {
     test: /walk|run|jog|exercise|play|outside|outdoor|park|cycle|gym/i,
     pick: (p) => p.items.filter((i) => i.kind === 'exercise' || i.kind === 'ventilate'),
@@ -45,9 +49,13 @@ const INTENTS: { test: RegExp; pick: (p: PlanResult) => RoutineItem[]; intro: (p
 
 export function fallbackAnswer(question: string, plan: PlanResult, aiConfigured = false): string {
   const intent = INTENTS.find((i) => i.test.test(question));
-  const items = intent ? intent.pick(plan).slice(0, 4) : plan.items.filter((i) => i.freeAction).slice(0, 4);
+  const items = intent
+    ? intent.pick(plan).slice(0, 4)
+    : plan.items.filter((i) => i.freeAction).slice(0, 4);
   const intro = intent ? intent.intro(plan) : plan.headline;
-  const body = items.length ? items.map(bullet).join('\n') : '- Nothing specific to change for this today.';
+  const body = items.length
+    ? items.map(bullet).join('\n')
+    : '- Nothing specific to change for this today.';
   const note = aiConfigured
     ? "_Gemini is busy right now, so Exhale's offline engine answered from your live plan. Ask again in a minute for a conversational answer._"
     : "_Answered by Exhale's offline engine. Add a Gemini API key on the server for full conversational answers._";

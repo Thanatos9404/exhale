@@ -14,7 +14,10 @@ import { makeSnapshot } from '@/test/fixtures';
 const plan = buildPlan(DEFAULT_HOUSEHOLD, makeSnapshot(), new Date('2026-11-23T00:00:00Z'));
 
 describe('AreaChart', () => {
-  const data = Array.from({ length: 24 }, (_, i) => ({ label: `${String(i).padStart(2, '0')}:00`, value: 50 + i }));
+  const data = Array.from({ length: 24 }, (_, i) => ({
+    label: `${String(i).padStart(2, '0')}:00`,
+    value: 50 + i,
+  }));
 
   it('is an accessible image with a summary', () => {
     render(<AreaChart data={data} unit="µg/m³" ariaLabel="PM2.5 today" />);
@@ -35,7 +38,17 @@ describe('AreaChart', () => {
 describe('form primitives', () => {
   it('Segmented exposes radio semantics and reports changes', async () => {
     const onChange = vi.fn();
-    render(<Segmented label="Range" value="a" onChange={onChange} options={[{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }]} />);
+    render(
+      <Segmented
+        label="Range"
+        value="a"
+        onChange={onChange}
+        options={[
+          { value: 'a', label: 'A' },
+          { value: 'b', label: 'B' },
+        ]}
+      />,
+    );
     expect(screen.getByRole('radiogroup', { name: 'Range' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'A' })).toHaveAttribute('aria-checked', 'true');
     await userEvent.click(screen.getByRole('radio', { name: 'B' }));
@@ -53,7 +66,11 @@ describe('form primitives', () => {
 
   it('Button shows a busy state while loading and blocks clicks', async () => {
     const onClick = vi.fn();
-    render(<Button loading onClick={onClick}>Deploy</Button>);
+    render(
+      <Button loading onClick={onClick}>
+        Deploy
+      </Button>,
+    );
     const btn = screen.getByRole('button', { name: 'Deploy' });
     expect(btn).toBeDisabled();
     expect(btn).toHaveAttribute('aria-busy', 'true');
@@ -64,7 +81,15 @@ describe('RoutineRow', () => {
   const item = plan.items.find((i) => i.id === 'coil')!;
 
   it('expands to show the reasoning and impact', async () => {
-    render(<ul><RoutineRow item={item} members={DEFAULT_HOUSEHOLD.members} why="Coils fill the bedroom with smoke." /></ul>);
+    render(
+      <ul>
+        <RoutineRow
+          item={item}
+          members={DEFAULT_HOUSEHOLD.members}
+          why="Coils fill the bedroom with smoke."
+        />
+      </ul>,
+    );
     const toggle = screen.getByRole('button', { name: new RegExp(item.title) });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     await userEvent.click(toggle);
@@ -75,13 +100,28 @@ describe('RoutineRow', () => {
 
   it('marks an action done', async () => {
     const onToggle = vi.fn();
-    render(<ul><RoutineRow item={item} members={DEFAULT_HOUSEHOLD.members} onToggleDone={onToggle} /></ul>);
+    render(
+      <ul>
+        <RoutineRow item={item} members={DEFAULT_HOUSEHOLD.members} onToggleDone={onToggle} />
+      </ul>,
+    );
     await userEvent.click(screen.getByRole('button', { name: `Mark "${item.title}" done` }));
     expect(onToggle).toHaveBeenCalled();
   });
 
   it('has no axe violations', async () => {
-    const { container } = render(<ul>{plan.items.slice(0, 4).map((i) => <RoutineRow key={i.id} item={i} members={DEFAULT_HOUSEHOLD.members} onToggleDone={() => {}} />)}</ul>);
+    const { container } = render(
+      <ul>
+        {plan.items.slice(0, 4).map((i) => (
+          <RoutineRow
+            key={i.id}
+            item={i}
+            members={DEFAULT_HOUSEHOLD.members}
+            onToggleDone={() => {}}
+          />
+        ))}
+      </ul>,
+    );
     expect(await axeViolations(container)).toEqual([]);
   });
 
