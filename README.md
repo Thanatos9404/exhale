@@ -10,6 +10,19 @@
 
 ---
 
+## Evaluation map
+
+Each judging criterion has its own evidence document. Every claim in them links to the file that implements it and the test that proves it, and [tests/docs.test.ts](tests/docs.test.ts) fails the build if a document cites a missing file or a stale limit.
+
+| Criterion                   | In one line                                                                                                   | Evidence                                     | Verify                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | --------------------------------------------------------------- |
+| Code Quality                | Strict type-checked lint with size and complexity limits, layer boundaries and conventions enforced by tests  | [CODE_QUALITY.md](CODE_QUALITY.md)           | `npm run lint`, `npx vitest run tests`                          |
+| Security                    | Same-origin API, validated input, prompt-injection tags, bounded AI cost, strict headers, pinned supply chain | [SECURITY.md](SECURITY.md)                   | `npm run audit:deps`, `npm test`                                |
+| Efficiency                  | 138.6 kB first-load JavaScript against a 170 kB budget, about 2 ms per plan, cached AI                        | [EFFICIENCY.md](EFFICIENCY.md)               | `npm run build && npm run bundle:check`                         |
+| Testing                     | Unit, property-based, API, UI, accessibility, end-to-end, architecture and documentation tests, all hermetic  | [TESTING.md](TESTING.md)                     | `npm run check`, `npm run test:e2e`                             |
+| Accessibility               | WCAG 2.2 AA criteria mapped to code and tests; axe in jsdom and real Chrome; computed contrast                | [ACCESSIBILITY.md](ACCESSIBILITY.md)         | `npx vitest run src/pages/a11y.test.tsx tests/contrast.test.ts` |
+| Problem Statement Alignment | Every phrase of the brief traced to a feature, a file and a test, for families and their communities          | [PROBLEM_ALIGNMENT.md](PROBLEM_ALIGNMENT.md) | `npx vitest run tests/workedExample.test.ts`                    |
+
 ## Chosen vertical
 
 **Urban Air Quality Assistant.** The problem statement asks for a GenAI-powered assistant that helps families and communities navigate severe winter smog and urban air pollution, suggesting low-emission daily routines, indoor air quality hacks and sustainable alternatives tailored to location and lifestyle, while clearly explaining the direct impact of their choices.
@@ -114,67 +127,79 @@ flowchart LR
 
 ## Google AI usage
 
-| Where              | Gemini feature                                                  | Purpose                                                                                                                                                                                                                            |
-| ------------------ | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `api/plan.ts`      | `generateContent` with `responseJsonSchema` (structured output) | Headline, summary, per-action "why", indoor hacks, sustainable swaps, a note for the most sensitive person                                                                                                                         |
-| `api/chat.ts`      | `generateContentStream`                                         | Streaming assistant grounded in the live plan and household                                                                                                                                                                        |
-| `api/chat.ts`      | Google Search grounding (`tools: [{ googleSearch: {} }]`)       | Current local advisories (for example GRAP stages), with cited sources                                                                                                                                                             |
-| `server/gemini.ts` | Hedged requests across a model chain, with a circuit breaker    | `gemini-3.6-flash` first; if it has not answered in 7 s a Flash-Lite model races it and the first valid answer wins. Overloaded models cool down for 3 min; per-attempt timeouts and an overall deadline fit a serverless function |
-| All calls          | `thinkingLevel: low`                                            | The engine already did the reasoning, so light thinking halves latency                                                                                                                                                             |
-| `server/gemini.ts` | Key rotation (`GEMINI_API_KEYS`, comma separated)               | Every key × model pair is a candidate with its own circuit breaker, so one exhausted key never takes the feature down                                                                                                              |
-| `server/claude.ts` | Claude Haiku (`claude-haiku-5-5`) as second provider, optional  | Used only when every Gemini key and model fails: structured JSON output (`output_config.format`) for plans and streaming for chat, with a per-minute budget. Enabled by setting `ANTHROPIC_API_KEY`                                |
+| Where              | Gemini feature                                                  | Purpose                                                                                                                                                                                                                                                                         |
+| ------------------ | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `api/plan.ts`      | `generateContent` with `responseJsonSchema` (structured output) | Headline, summary, per-action "why", indoor hacks, sustainable swaps, a note for the most sensitive person                                                                                                                                                                      |
+| `api/chat.ts`      | `generateContentStream`                                         | Streaming assistant grounded in the live plan and household                                                                                                                                                                                                                     |
+| `api/chat.ts`      | Google Search grounding (`tools: [{ googleSearch: {} }]`)       | Current local advisories (for example GRAP stages), with cited sources                                                                                                                                                                                                          |
+| `server/gemini/`   | Hedged requests across a model chain, with a circuit breaker    | The deployed app puts Flash-Lite first (configurable with `GEMINI_MODEL`); if it has not answered in 7 s the next model races it and the first valid answer wins. Overloaded models cool down for 3 min; per-attempt timeouts and an overall deadline fit a serverless function |
+| All calls          | `thinkingLevel: low`                                            | The engine already did the reasoning, so light thinking keeps latency and cost low                                                                                                                                                                                              |
+| `server/gemini.ts` | Key rotation (`GEMINI_API_KEYS`, comma separated)               | Every key × model pair is a candidate with its own circuit breaker, so one exhausted key never takes the feature down                                                                                                                                                           |
+| `server/claude.ts` | Claude Haiku (`claude-haiku-5-5`) as second provider, optional  | Used only when every Gemini key and model fails: structured JSON output (`output_config.format`) for plans and streaming for chat, with a per-minute budget. Enabled by setting `ANTHROPIC_API_KEY`                                                                             |
 
 Without any key the app still works end to end: plans use the engine's own explanations and chat answers come from an offline responder built on the plan. The order is always Gemini, then Claude Haiku (if configured), then the rules engine.
 
 ## Security
 
-- The Gemini key lives only in server environment variables; the browser never sees it. `.env*` is git-ignored.
-- Every request body is size-capped, content-type checked and validated with zod (coordinates, a restricted character set for names and labels, message counts and lengths).
-- Prompt-injection hardening: user text is wrapped in `<user>` / `<household>` tags, the system prompt tells the model to treat it as data, and AI output is schema-validated, filtered to known action ids and rendered as text (Markdown with raw HTML disabled).
-- Per-client rate limits on both AI endpoints, bounded in memory.
-- Internal errors never reach the client; responses are `no-store`.
-- Strict headers on every route: Content-Security-Policy (no inline scripts, allow-listed data hosts), HSTS, `X-Frame-Options: DENY`, `nosniff`, Referrer-Policy, Permissions-Policy (geolocation self only), COOP.
-- Privacy: the profile, chat and plans stay in the browser's storage, are validated when read back, and can be deleted from Settings. Location is rounded to about 1 km.
+Summary of [SECURITY.md](SECURITY.md), which maps every threat to the file that handles it and the test that proves it.
+
+- **Keys stay on the server.** API keys live only in server environment variables, and a convention test proves no browser module reads one. Logs mask anything shaped like a key.
+- **Same-origin API.** Cross-site POSTs are refused with 403 by `Origin` and `Sec-Fetch-Site` checks, and the content type must be exactly `application/json`.
+- **Validated input.** Bodies are streamed with a byte cap and parsed with zod. Names and labels allow letters in any script, digits and address punctuation.
+- **Prompt-injection hardening.** Every user-typed string is neutralised and wrapped in a named data tag (`place`, `name`, `item`, `household`, `history`, `user`). Replayed chat history is sent as unverified data. Model output is schema-validated and can never change a number.
+- **Bounded cost.** Per-client rate limits, a tighter limit for web-grounded questions, per-instance call budgets for Gemini and Claude, and one 50 second deadline per request that always ends in an answer.
+- **Strict headers**, checked by value in a test: CSP with `script-src 'self'`, HSTS, `X-Frame-Options: DENY`, `nosniff`, Referrer-Policy, Permissions-Policy, COOP and CORP.
+- **Supply chain.** `npm audit` gate in CI, CodeQL, dependency review, Dependabot, and every GitHub Action pinned to a commit SHA.
 
 ## Testing
 
-`npm test` runs 250+ tests with Vitest. Coverage of the engine, server and API is about 95% of statements and 90% of branches, enforced in CI with thresholds:
+Summary of [TESTING.md](TESTING.md). The whole suite is hermetic: no network, no API keys, no real AI calls.
 
-- **Science:** AQI breakpoints for both standards, averaging, dose and cigarette maths, indoor mass balance, commute ranking, lid and clean-window detection.
-- **Planner:** decisions for different households (asthmatic child sent indoors, adult moved to a clean hour, habit kept when clean, WFH skips commute, upgrades separated, purifier and fuel cases), determinism, what-if selection, and that the plan never makes a day worse.
-- **Server and API:** rate limiter, body limits, error hiding, prompt guardrails, Gemini hedging, retries and key rotation, the Claude Haiku fallback (structured output, refusals, budget, streaming), validation with fake clients, streaming with grounding sources, offline answers, `/api/plan`, `/api/chat` and `/api/health` handlers including invalid input, injection attempts and 429s.
-- **UI:** chart keyboard reading, form primitives, routine rows, page flows (what-if toggles, purifier lowering indoor PM2.5, settings validation) and **axe-core accessibility checks** on the Overview, Settings and routine lists.
+| Layer                              | Tool                                 | Examples                                                                                                                                                                                           |
+| ---------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit and edge cases                | Vitest                               | [src/lib/air/aqi.test.ts](src/lib/air/aqi.test.ts), [src/lib/planner/edgeCases.test.ts](src/lib/planner/edgeCases.test.ts)                                                                         |
+| Property-based invariants          | fast-check                           | [src/lib/planner/engine.property.test.ts](src/lib/planner/engine.property.test.ts) (the plan never makes anyone worse off), [server/rateLimit.property.test.ts](server/rateLimit.property.test.ts) |
+| API handlers and AI providers      | Vitest with fake clients             | [api/handlers.test.ts](api/handlers.test.ts), [server/promptInjection.test.ts](server/promptInjection.test.ts), [server/gemini/stream.test.ts](server/gemini/stream.test.ts)                       |
+| UI components and pages            | Testing Library                      | [src/pages/pages.test.tsx](src/pages/pages.test.tsx), [src/pages/assistant/conversation.test.tsx](src/pages/assistant/conversation.test.tsx)                                                       |
+| Accessibility                      | axe-core in jsdom and in real Chrome | [src/pages/a11y.test.tsx](src/pages/a11y.test.tsx), [e2e/accessibility.spec.ts](e2e/accessibility.spec.ts), [tests/contrast.test.ts](tests/contrast.test.ts)                                       |
+| End-to-end journeys                | Playwright, desktop and phone        | [e2e/](e2e/)                                                                                                                                                                                       |
+| Architecture, conventions and docs | Vitest reading the repository        | [tests/architecture.test.ts](tests/architecture.test.ts), [tests/conventions.test.ts](tests/conventions.test.ts), [tests/docs.test.ts](tests/docs.test.ts)                                         |
+| Budgets                            | Vitest and a build script            | [tests/performance.test.ts](tests/performance.test.ts), [scripts/check-bundle.mjs](scripts/check-bundle.mjs)                                                                                       |
 
-CI (`.github/workflows/ci.yml`) runs Prettier, typecheck, strict lint, tests with coverage thresholds and a production build on every push.
+CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs the dependency audit, Prettier, `tsc`, strict ESLint, Vitest with coverage thresholds, the production build, the bundle budget and the Playwright suite on every push.
 
 ## Code quality
 
-- **TypeScript:** strict mode with `noUncheckedIndexedAccess`. The codebase has no `any`, no non-null assertions, no `@ts-ignore` and no `eslint-disable` comments. Guaranteed values go through `defined()` (`src/lib/assert.ts`), which fails loudly instead of hiding a bug.
-- **ESLint:**
-  - typescript-eslint `strictTypeChecked` and `stylisticTypeChecked`, with zero warnings allowed
-  - React Compiler hook rules and jsx-a11y
-  - every file under 300 lines, every function under complexity 20 and nesting depth 4
-- **Small modules:**
-  - The planner is split into a simulator plus one builder per kind of action (`src/lib/planner/actions/`).
-  - The Gemini client is split into candidates, breaker, hedged runner, JSON and stream (`server/gemini/`).
-  - Each page composes components from its own folder (`src/pages/settings/` and so on).
-- **Consistency:** Prettier, `.editorconfig`, `.nvmrc` and Dependabot are configured. See [CONTRIBUTING.md](CONTRIBUTING.md) for the standards and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the layers and data flow.
+Summary of [CODE_QUALITY.md](CODE_QUALITY.md). Every rule below is enforced by a tool, not by review.
+
+- **TypeScript:** strict mode with `noUncheckedIndexedAccess`. Production code has no `any`, no type assertions, no non-null assertions and no `@ts-ignore`. Guaranteed values go through `defined()` ([src/lib/assert.ts](src/lib/assert.ts)), which fails loudly instead of hiding a bug.
+- **ESLint:** typescript-eslint `strictTypeChecked` and `stylisticTypeChecked`, the react-hooks recommended rules and jsx-a11y, with zero warnings and no way to disable a rule inside a file. Files stay under 200 lines, functions under 60 lines, complexity 12, nesting depth 3 and 4 parameters.
+- **Architecture tests:** layer boundaries (the engine never imports UI code or an AI SDK, the browser never imports server code), page folders kept private, and every module opening with a comment that states its one job.
+- **Small modules:** the planner is a simulator plus one builder per kind of action behind a registry; the Gemini client is split into candidates, breaker, budget, hedged runner, JSON, stream and sources; each page composes components from its own folder.
+- See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the layers and data flow, [docs/DECISIONS.md](docs/DECISIONS.md) for the trade-offs, and [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow.
 
 ## Accessibility
 
-- Semantic landmarks, one `h1` per page, skip link, `aria-current` navigation, real buttons and links.
-- Every chart has a text summary, keyboard reading (arrow keys, Home, End) with a live region, and a data-table view. The 3D scenes are decorative with the same information in text next to them.
-- AQI colour is always paired with a text label; contrast tuned for WCAG AA in light and dark themes.
-- Status changes (deployments, streaming answers) are announced through polite live regions.
-- `prefers-reduced-motion` stops the 3D loops, particle canvases and diagram animation, leaving still frames.
-- Forms have labels, hints and inline errors linked with `aria-describedby`.
+Summary of [ACCESSIBILITY.md](ACCESSIBILITY.md), which maps WCAG 2.2 AA success criteria to files and tests.
+
+- **Checked in two places.** axe runs on every route in jsdom and again in real Chrome in both themes. Colour contrast is computed from the design tokens in a test, for every text and control pair in both themes.
+- **Keyboard.** A skip link, a single tab stop with arrow keys for tabs and segmented controls, a command menu that traps and returns focus, and keyboard reading of charts.
+- **Charts and 3D.** Every chart has a text summary and keyboard reading through a live region, and the Forecast chart has a data-table view. The 3D scenes are decorative, with the same facts in text beside them.
+- **Meaning never by colour alone.** AQI colour is always paired with a text label.
+- **Status changes are announced** through polite live regions: deploys, streaming answers, copy confirmations.
+- **Motion and themes.** `prefers-reduced-motion` leaves still frames; dark and light themes; forced-colours support.
+- **Language.** The Hindi community bulletin carries `lang="hi"`.
 
 ## Efficiency
 
-- Route-level code splitting; three.js (the heaviest dependency) loads only when a 3D view mounts, after first paint. Vendor chunks are split for long-term caching.
-- Air data is cached for 10 minutes per ~1 km cell on both client (TanStack Query) and server; city search is debounced and abortable.
-- WebGL scenes cap device pixel ratio, pause when offscreen or in background tabs, and use custom shaders so thousands of particles cost one draw call.
-- The engine is pure TypeScript and runs in a few milliseconds, so what-if toggles recompute the whole day instantly.
+Summary of [EFFICIENCY.md](EFFICIENCY.md). Budgets fail the build in CI.
+
+- **138.6 kB gzip of JavaScript for first paint**, against a 170 kB budget. three.js, the animation library, the command menu, GSAP and the Markdown renderer are all kept out of the first load, and the build fails if one slips in.
+- **The 3D scene waits its turn:** a lightweight poster first, three.js only once it is on screen and the browser is idle, and never automatically on a data-saver connection.
+- **About 2 ms per plan,** so what-if toggles recompute the whole day instantly. A performance test holds the budget.
+- **Fetch once:** air data cached per ~1 km cell in the browser and on the server, failures remembered briefly, and validated AI explanations cached for 10 minutes so identical prompts are not paid for twice.
+- **Cost-aware AI:** the engine does the reasoning, the cheapest capable model answers first, outputs and history are capped, and one deadline per request ends in the rules fallback rather than a timeout.
+- **Loops that stop:** animations pause offscreen and when idle, and streamed chat updates once per frame without re-rendering history.
 
 ## Run locally
 
@@ -183,6 +208,7 @@ npm install
 cp .env.example .env.local   # add GEMINI_API_KEY (optional)
 npm run dev                  # app and /api on http://localhost:5173
 npm run check                # format, typecheck, lint, tests with coverage
+npm run test:e2e             # Playwright journeys in Chrome, desktop and phone
 ```
 
 Deploy: import the repo in Vercel (framework: Vite) and set `GEMINI_API_KEY` as an environment variable. `vercel.json` adds the API functions, SPA routing and security headers.
