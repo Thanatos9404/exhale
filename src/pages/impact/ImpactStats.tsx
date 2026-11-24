@@ -1,3 +1,7 @@
+/**
+ * Headline numbers of the Impact page for the changes currently switched on: dose, exposure,
+ * cigarette equivalents and CO2e.
+ */
 import { Card } from '@/components/ui/primitives';
 import type { PlanResult } from '@/lib/planner/engine';
 import { fmtCig, fmtDec, fmtDose } from '@/lib/format';

@@ -1,3 +1,8 @@
+/**
+ * Data behind the Overview scrubber: resolves an hour offset into everything the page shows for
+ * that hour, plus the cells of the hour strip. Pure functions; an hour with no reading resolves
+ * to null.
+ */
 import { aqiCategory, type AqiLevel, type AqiResult } from '@/lib/air/aqi';
 import type { AirSnapshot, AqiStandard, HourPoint } from '@/lib/air/types';
 import { dayHourLabel } from '@/lib/format';
@@ -77,7 +82,8 @@ export function scrubHour(
   const instant = aqi.instant[index];
   const official = aqi.official[air.nowIndex];
   if (!hour || !instant || !official) return null;
-  const isNow = offset === 0;
+  // Judged after clamping: a forecast that ends at the current hour is still "now".
+  const isNow = clamped === 0;
   return {
     isNow,
     offset: clamped,

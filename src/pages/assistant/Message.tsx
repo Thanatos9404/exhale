@@ -1,17 +1,29 @@
-import { lazy, Suspense } from 'react';
+/**
+ * One chat bubble. It is memoised, so a finished message is rendered (and its Markdown parsed)
+ * once, however often the conversation around it updates.
+ */
+import { lazy, memo, Suspense } from 'react';
 import type { Components } from 'react-markdown';
 import { ParticleOrb } from '@/components/ParticleOrb';
 import type { ChatMessage } from '@/lib/apiTypes';
+import { httpsUrl } from './chat';
 
 const Markdown = lazy(() => import('react-markdown'));
 
-/** Links in answers open in a new tab without handing over the opener. */
+/**
+ * Links in answers are model output, so only `https:` ones become links, opened in a new tab
+ * without handing over the opener or the referrer. Anything else is shown as plain text.
+ */
 const MARKDOWN_COMPONENTS: Components = {
-  a: ({ href, children }) => (
-    <a href={href} target="_blank" rel="noreferrer noopener">
-      {children}
-    </a>
-  ),
+  a: ({ href, children }) => {
+    const url = httpsUrl(href);
+    if (!url) return <>{children}</>;
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer">
+        {children}
+      </a>
+    );
+  },
 };
 
 interface MessageProps {
@@ -21,7 +33,7 @@ interface MessageProps {
 }
 
 /** One chat bubble: plain text for the user, rendered Markdown for Exhale's answers. */
-export function Message({ message, streaming = false }: MessageProps) {
+export const Message = memo(function Message({ message, streaming = false }: MessageProps) {
   if (message.role === 'user') {
     return (
       <li className="flex justify-end">
@@ -55,4 +67,4 @@ export function Message({ message, streaming = false }: MessageProps) {
       </div>
     </li>
   );
-}
+});

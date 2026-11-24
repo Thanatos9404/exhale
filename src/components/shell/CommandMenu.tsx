@@ -1,5 +1,13 @@
+/**
+ * ⌘K menu: search any city (live geocoding), jump between pages, run actions, or hand a
+ * question straight to the assistant. This module owns the menu's state, its Ctrl+K shortcut and
+ * the hand-off to the assistant; the dialog itself (cmdk and its dialog library) is loaded the
+ * first time the menu opens.
+ */
 import {
   createContext,
+  lazy,
+  Suspense,
   useCallback,
   useContext,
   useEffect,
@@ -7,31 +15,17 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Command } from 'cmdk';
-import { useLocation } from 'wouter';
-import {
-  ArrowRight,
-  Compass,
-  LocateFixed,
-  MapPin,
-  Monitor,
-  Moon,
-  Rocket,
-  Sparkles,
-  Sun,
-} from 'lucide-react';
-import { toast } from 'sonner';
-import { searchPlaces, type GeoResult } from '@/lib/air/openMeteo';
-import { useAppState } from '@/state/AppState';
-import { useDeployments } from '@/state/Deployments';
-import { ROUTES } from '@/config';
-import { locateUser } from '@/lib/geo';
+import { prefersReducedData, whenIdle } from '@/hooks/idle';
+import { useReturnFocus } from './useReturnFocus';
 
-/**
- * ⌘K menu: search any city (live geocoding), jump between pages, run actions, or hand a
- * question straight to the assistant. Built on cmdk, which supplies the dialog semantics,
- * focus trap and keyboard navigation.
- */
+const loadDialog = () => import('./CommandDialog');
+const CommandDialog = lazy(async () => ({ default: (await loadDialog()).CommandDialog }));
+
+/** Fetches the dialog's code ahead of the first open, so the menu appears without a wait. */
+export function preloadCommandMenu(): void {
+  // A failed warm-up is harmless: opening the menu asks again.
+  void loadDialog().catch(() => undefined);
+}
 
 interface CommandMenuState {
   open: (initial?: string) => void;
@@ -41,32 +35,61 @@ interface CommandMenuState {
 
 const Ctx = createContext<CommandMenuState | null>(null);
 
+/** Opens the command menu and reads the question it handed to the assistant. */
 export function useCommandMenu(): CommandMenuState {
   const v = useContext(Ctx);
   if (!v) throw new Error('useCommandMenu must be used inside CommandMenuProvider');
   return v;
 }
 
-export function CommandMenuProvider({ children }: { children: ReactNode }) {
-  const [isOpen, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const [pendingQuestion, setPending] = useState<string | null>(null);
-
+/** Binds Ctrl+K and Cmd+K to `onToggle` for as long as the caller is mounted. */
+function useMenuShortcut(onToggle: () => void): void {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        setOpen((o) => !o);
+        onToggle();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [onToggle]);
+}
 
-  const open = useCallback((initial = '') => {
-    setQuery(initial);
-    setOpen(true);
+/** Warms the dialog's code once the browser is idle, unless the user is saving data. */
+function useIdlePreload(): void {
+  useEffect(() => {
+    if (prefersReducedData()) return;
+    return whenIdle(preloadCommandMenu);
   }, []);
+}
+
+/** Mounts the command menu, binds Ctrl+K and Cmd+K, and shares its controls with the tree. */
+export function CommandMenuProvider({ children }: { children: ReactNode }) {
+  const [isOpen, setOpen] = useState(false);
+  /** True from the first open: the dialog's code is only requested once it is wanted. */
+  const [requested, setRequested] = useState(false);
+  const [query, setQuery] = useState('');
+  const [pendingQuestion, setPending] = useState<string | null>(null);
+  const rememberOpener = useReturnFocus(isOpen);
+
+  const toggle = useCallback(() => {
+    rememberOpener();
+    setRequested(true);
+    setOpen((o) => !o);
+  }, [rememberOpener]);
+  useMenuShortcut(toggle);
+  useIdlePreload();
+
+  const open = useCallback(
+    (initial = '') => {
+      rememberOpener();
+      setQuery(initial);
+      setRequested(true);
+      setOpen(true);
+    },
+    [rememberOpener],
+  );
 
   const takePendingQuestion = useCallback(() => {
     const q = pendingQuestion;
@@ -82,246 +105,17 @@ export function CommandMenuProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={value}>
       {children}
-      <CommandDialog
-        open={isOpen}
-        onOpenChange={setOpen}
-        query={query}
-        setQuery={setQuery}
-        onAsk={(q) => setPending(q)}
-      />
+      {requested && (
+        <Suspense fallback={null}>
+          <CommandDialog
+            open={isOpen}
+            onOpenChange={setOpen}
+            query={query}
+            setQuery={setQuery}
+            onAsk={(q) => setPending(q)}
+          />
+        </Suspense>
+      )}
     </Ctx.Provider>
-  );
-}
-
-const MIN_SEARCH_CHARS = 2;
-const SEARCH_DEBOUNCE_MS = 250;
-
-function CommandDialog({
-  open,
-  onOpenChange,
-  query,
-  setQuery,
-  onAsk,
-}: {
-  open: boolean;
-  onOpenChange: (o: boolean) => void;
-  query: string;
-  setQuery: (q: string) => void;
-  onAsk: (q: string) => void;
-}) {
-  const [, navigate] = useLocation();
-  const { setPlace, recentPlaces, setTheme } = useAppState();
-  const { deploy } = useDeployments();
-  const [results, setResults] = useState<GeoResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  /** The query whose search has finished, so "no match" never flashes while typing. */
-  const [searched, setSearched] = useState('');
-
-  const term = query.trim();
-  const searchable = open && term.length >= MIN_SEARCH_CHARS;
-  // Short or closed queries show nothing; the last results stay in state for the next search.
-  const places = searchable ? results : [];
-
-  // Debounced, abortable city search.
-  useEffect(() => {
-    if (!searchable) return;
-    const q = term;
-    const ctrl = new AbortController();
-    const t = setTimeout(() => {
-      setSearching(true);
-      searchPlaces(q, { signal: ctrl.signal })
-        .then(setResults)
-        .catch(() => setResults([]))
-        .finally(() => {
-          setSearching(false);
-          if (!ctrl.signal.aborted) setSearched(q);
-        });
-    }, SEARCH_DEBOUNCE_MS);
-    return () => {
-      clearTimeout(t);
-      ctrl.abort();
-    };
-  }, [term, searchable]);
-
-  const close = () => onOpenChange(false);
-  const go = (path: string) => {
-    navigate(path);
-    close();
-  };
-
-  const switchToMyLocation = async () => {
-    close();
-    const id = toast.loading('Finding your location…');
-    try {
-      const place = await locateUser();
-      setPlace(place);
-      toast.success(`Switched to ${place.label}`, { id });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Location unavailable', { id });
-    }
-  };
-
-  const item =
-    'flex h-10 cursor-pointer items-center gap-3 rounded-md px-3 text-sm text-fg data-[selected=true]:bg-hover aria-disabled:opacity-50';
-  const heading =
-    '[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-subtle';
-
-  return (
-    <Command.Dialog
-      open={open}
-      onOpenChange={onOpenChange}
-      label="Command menu"
-      shouldFilter={false}
-      overlayClassName="fixed inset-0 z-50 bg-black/50 backdrop-blur-[2px]"
-      contentClassName="fixed top-[12vh] left-1/2 z-50 w-[min(640px,calc(100vw-32px))] -translate-x-1/2 overflow-hidden rounded-xl border border-line bg-surface shadow-pop"
-    >
-      <div className="flex items-center gap-2 border-b border-line px-4">
-        <Compass size={16} className="text-subtle" aria-hidden="true" />
-        <Command.Input
-          value={query}
-          onValueChange={setQuery}
-          placeholder="Search a city, jump to a page, or ask Exhale…"
-          className="h-12 w-full bg-transparent text-[15px] text-fg outline-none placeholder:text-subtle"
-        />
-      </div>
-      <Command.List className="max-h-[min(420px,60vh)] overflow-y-auto p-2">
-        <Command.Empty className="px-3 py-6 text-center text-sm text-muted">
-          {searching ? 'Searching…' : 'No results.'}
-        </Command.Empty>
-
-        {query.trim().length > 2 && (
-          <Command.Group heading="Assistant" className={heading}>
-            <Command.Item
-              value={`ask ${query}`}
-              className={item}
-              onSelect={() => {
-                onAsk(query.trim().slice(0, 500));
-                go('/assistant');
-              }}
-            >
-              <Sparkles size={16} aria-hidden="true" className="text-blue" />
-              <span className="truncate">Ask Exhale: “{query.trim()}”</span>
-            </Command.Item>
-          </Command.Group>
-        )}
-
-        <Command.Group heading="Places" className={heading}>
-          <Command.Item
-            value="use-my-location"
-            className={item}
-            onSelect={() => void switchToMyLocation()}
-          >
-            <LocateFixed size={16} aria-hidden="true" className="text-muted" />
-            Use my current location
-          </Command.Item>
-          {query.trim().length >= 2 && !searching && searched === term && places.length === 0 && (
-            <div role="status" className="px-3 py-2 text-[13px] text-muted">
-              No places match “{query.trim()}”. Check the spelling or try a nearby city.
-            </div>
-          )}
-          {places.map((r) => (
-            <Command.Item
-              key={r.id}
-              value={`place-${r.id}`}
-              className={item}
-              onSelect={() => {
-                setPlace(r);
-                toast.success(`Switched to ${r.label}`);
-                close();
-              }}
-            >
-              <MapPin size={16} aria-hidden="true" className="text-muted" />
-              <span className="truncate">{r.name}</span>
-              <span className="ml-auto truncate text-xs text-subtle">{r.region}</span>
-            </Command.Item>
-          ))}
-          {places.length === 0 &&
-            recentPlaces.map((p) => (
-              <Command.Item
-                key={p.label}
-                value={`recent-${p.label}`}
-                className={item}
-                onSelect={() => {
-                  setPlace(p);
-                  close();
-                }}
-              >
-                <MapPin size={16} aria-hidden="true" className="text-muted" />
-                <span className="truncate">{p.label}</span>
-                <span className="ml-auto text-xs text-subtle">Recent</span>
-              </Command.Item>
-            ))}
-        </Command.Group>
-
-        <Command.Group heading="Go to" className={heading}>
-          {ROUTES.filter((r) => !query || r.label.toLowerCase().includes(query.toLowerCase())).map(
-            (r) => (
-              <Command.Item
-                key={r.path}
-                value={`nav-${r.path}`}
-                className={item}
-                onSelect={() => go(r.path)}
-              >
-                <ArrowRight size={16} aria-hidden="true" className="text-muted" />
-                {r.label}
-              </Command.Item>
-            ),
-          )}
-        </Command.Group>
-
-        {!query && (
-          <Command.Group heading="Actions" className={heading}>
-            <Command.Item
-              value="deploy"
-              className={item}
-              onSelect={() => {
-                go('/routine');
-                void deploy();
-              }}
-            >
-              <Rocket size={16} aria-hidden="true" className="text-muted" />
-              Deploy today’s routine
-            </Command.Item>
-            <Command.Item
-              value="theme-dark"
-              className={item}
-              onSelect={() => {
-                setTheme('dark');
-                close();
-              }}
-            >
-              <Moon size={16} aria-hidden="true" className="text-muted" /> Dark theme
-            </Command.Item>
-            <Command.Item
-              value="theme-light"
-              className={item}
-              onSelect={() => {
-                setTheme('light');
-                close();
-              }}
-            >
-              <Sun size={16} aria-hidden="true" className="text-muted" /> Light theme
-            </Command.Item>
-            <Command.Item
-              value="theme-system"
-              className={item}
-              onSelect={() => {
-                setTheme('system');
-                close();
-              }}
-            >
-              <Monitor size={16} aria-hidden="true" className="text-muted" /> System theme
-            </Command.Item>
-          </Command.Group>
-        )}
-      </Command.List>
-      <div className="flex items-center justify-between border-t border-line bg-surface-2 px-4 py-2 text-xs text-subtle">
-        <span>City search by Open-Meteo</span>
-        <span>
-          <kbd className="font-sans">↑↓</kbd> to move, <kbd className="font-sans">↵</kbd> to select,{' '}
-          <kbd className="font-sans">esc</kbd> to close
-        </span>
-      </div>
-    </Command.Dialog>
   );
 }

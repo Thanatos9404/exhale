@@ -1,9 +1,13 @@
+/**
+ * Theme-aware helpers for canvas and WebGL visuals: resolved CSS colours, a subscription to
+ * theme flips, on-screen detection for pausing loops, and the WebGL capability check.
+ */
 import { useEffect, useState, useSyncExternalStore } from 'react';
 
 const FALLBACK_COLOR = '#888';
 
 /** Calls `onChange` whenever the root `data-theme` attribute flips. */
-function subscribeToTheme(onChange: () => void): () => void {
+export function subscribeToTheme(onChange: () => void): () => void {
   const mo = new MutationObserver(onChange);
   mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   return () => mo.disconnect();
@@ -11,11 +15,20 @@ function subscribeToTheme(onChange: () => void): () => void {
 
 const readTheme = () => document.documentElement.getAttribute('data-theme');
 
+/** True once every requested name has a value, which narrows the partial record to a full one. */
+function hasEvery<T extends string>(
+  record: Partial<Record<T, string>>,
+  names: readonly T[],
+): record is Record<T, string> {
+  return names.every((n) => typeof record[n] === 'string');
+}
+
 function readCssVars<T extends string>(names: readonly T[]): Record<T, string> {
   const style = getComputedStyle(document.documentElement);
-  return Object.fromEntries(
-    names.map((n) => [n, style.getPropertyValue(`--${n}`).trim() || FALLBACK_COLOR]),
-  ) as Record<T, string>;
+  const colors: Partial<Record<T, string>> = {};
+  for (const n of names) colors[n] = style.getPropertyValue(`--${n}`).trim() || FALLBACK_COLOR;
+  if (!hasEvery(colors, names)) throw new Error('Expected a colour for every CSS variable');
+  return colors;
 }
 
 /**

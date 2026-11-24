@@ -1,3 +1,7 @@
+/**
+ * Plan helpers for the Impact page: which changes can be shown as a diff, which are switched on,
+ * and the day recomputed by the engine with only those applied. Pure functions with no React.
+ */
 import type { AirSnapshot } from '@/lib/air/types';
 import {
   buildPlan,

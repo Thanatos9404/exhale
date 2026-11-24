@@ -1,3 +1,7 @@
+/**
+ * The next 24 hours as a strip of AQI-coloured cells under the scrubber. Each cell is a button,
+ * so an hour can be picked directly, and hatching marks the hours a smog lid sits.
+ */
 import { aqiVar } from '@/components/ui/primitives';
 import type { HourPoint } from '@/lib/air/types';
 import { cn } from '@/lib/cn';

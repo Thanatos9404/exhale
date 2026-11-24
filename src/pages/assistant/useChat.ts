@@ -1,18 +1,24 @@
+/**
+ * Conversation state for the assistant: the history, the answer being streamed (applied once
+ * per animation frame) and the controls. The draft is not here; the composer owns it.
+ */
 import { useCallback, useRef, useState } from 'react';
-import { toast } from 'sonner';
+import { notify } from '@/components/shell/toasts';
 import { streamChat } from '@/lib/api';
 import type { ChatMessage } from '@/lib/apiTypes';
 import type { Place } from '@/lib/air/types';
 import type { Household } from '@/lib/profile/schema';
 import { KEYS, readStored, removeStored, writeStored } from '@/lib/storage';
 import {
-  CONTEXT_MESSAGES,
   EMPTY_ANSWER,
   MAX_CHARS,
   STORED_MESSAGES,
+  contextMessages,
   isAbortError,
   parseChat,
+  type DraftReset,
 } from './chat';
+import { frameBatch } from './frameBatch';
 
 /** What every question is sent with. */
 export interface ChatContext {
@@ -27,8 +33,8 @@ export interface Chat {
   streaming: string | null;
   /** Status text for the polite live region. */
   announce: string;
-  draft: string;
-  setDraft: (text: string) => void;
+  /** What the composer's draft should become: empty after a send, the question after a failure. */
+  draftReset: DraftReset;
   /** Whether questions use web search. */
   search: boolean;
   setSearch: (on: boolean) => void;
@@ -40,12 +46,12 @@ export interface Chat {
   clear: () => void;
 }
 
-/** Conversation state for the assistant: history, draft, streaming answer and its controls. */
+/** Conversation state for the assistant: history, streaming answer and its controls. */
 export function useChat({ place, household }: ChatContext): Chat {
   const [messages, setMessages] = useState<ChatMessage[]>(
     () => readStored(KEYS.chat, parseChat) ?? [],
   );
-  const [draft, setDraft] = useState('');
+  const [draftReset, setDraftReset] = useState<DraftReset>({ id: 0, text: '' });
   const [search, setSearch] = useState(false);
   const [streaming, setStreaming] = useState<string | null>(null);
   const [announce, setAnnounce] = useState('');
@@ -55,17 +61,20 @@ export function useChat({ place, household }: ChatContext): Chat {
     async (text: string, useSearch = search) => {
       const q = text.trim().slice(0, MAX_CHARS);
       if (!q || streaming !== null) return;
+      const resetDraft = (next: string) => setDraftReset((r) => ({ id: r.id + 1, text: next }));
       const history: ChatMessage[] = [...messages, { role: 'user', text: q }];
       setMessages(history);
-      setDraft('');
+      resetDraft('');
       setStreaming('');
       setAnnounce('Exhale is answering');
       const ctrl = new AbortController();
       abortRef.current = ctrl;
+      // Chunks can arrive many times a frame; only the latest text is worth rendering.
+      const chunks = frameBatch<string>(setStreaming);
       try {
         const { text: answer } = await streamChat(
-          { place, household, messages: history.slice(-CONTEXT_MESSAGES), search: useSearch },
-          (soFar) => setStreaming(soFar),
+          { place, household, messages: contextMessages(history), search: useSearch },
+          chunks.push,
           ctrl.signal,
         );
         const next: ChatMessage[] = [...history, { role: 'model', text: answer || EMPTY_ANSWER }];
@@ -76,11 +85,12 @@ export function useChat({ place, household }: ChatContext): Chat {
         if (isAbortError(err)) {
           setAnnounce('Stopped');
         } else {
-          toast.error(err instanceof Error ? err.message : 'The assistant is unavailable');
+          notify.error(err instanceof Error ? err.message : 'The assistant is unavailable');
           setMessages(messages);
-          setDraft(q);
+          resetDraft(q);
         }
       } finally {
+        chunks.cancel();
         setStreaming(null);
         abortRef.current = null;
       }
@@ -95,16 +105,5 @@ export function useChat({ place, household }: ChatContext): Chat {
     removeStored(KEYS.chat);
   }, []);
 
-  return {
-    messages,
-    streaming,
-    announce,
-    draft,
-    setDraft,
-    search,
-    setSearch,
-    send,
-    stop,
-    clear,
-  };
+  return { messages, streaming, announce, draftReset, search, setSearch, send, stop, clear };
 }

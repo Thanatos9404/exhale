@@ -1,3 +1,7 @@
+/**
+ * Editable card for one household member in Settings: who they are, their daily pattern and
+ * their health conditions.
+ */
 import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import type { Member } from '@/lib/profile/schema';
@@ -21,6 +25,58 @@ interface MemberCardProps {
   onRemove: () => void;
 }
 
+type MemberFieldsProps = Pick<MemberCardProps, 'member' | 'index' | 'errors' | 'onPatch'>;
+
+/** Name, age group, daytime place and the exercise habit of one person. */
+function MemberFields({ member, index, errors, onPatch }: MemberFieldsProps) {
+  const resting = member.exercise === 'none';
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <TextField
+        label="Name"
+        value={member.name}
+        maxLength={32}
+        error={errors[`members.${index}.name`]}
+        onChange={(name) => onPatch({ name })}
+      />
+      <SelectField
+        label="Age group"
+        value={member.ageGroup}
+        options={AGE_GROUP_OPTIONS}
+        onChange={(ageGroup) => onPatch({ ageGroup })}
+      />
+      <SelectField
+        label="Daytime"
+        value={member.daytime}
+        options={DAYTIME_OPTIONS}
+        onChange={(daytime) => onPatch({ daytime })}
+      />
+      <SelectField
+        label="Exercise"
+        value={member.exercise}
+        options={EXERCISE_OPTIONS}
+        onChange={(exercise) => onPatch({ exercise })}
+      />
+      <SelectField
+        label="Usually at"
+        value={member.exerciseHour}
+        options={HOUR_OPTIONS}
+        disabled={resting}
+        onChange={(exerciseHour) => onPatch({ exerciseHour })}
+      />
+      <NumberField
+        label="Minutes"
+        value={member.exerciseMinutes}
+        min={0}
+        max={240}
+        error={errors[`members.${index}.exerciseMinutes`]}
+        disabled={resting}
+        onChange={(exerciseMinutes) => onPatch({ exerciseMinutes })}
+      />
+    </div>
+  );
+}
+
 /** Editable card for one person: who they are, their daily pattern and health conditions. */
 export function MemberCard({
   member,
@@ -31,7 +87,6 @@ export function MemberCard({
   onRemove,
 }: MemberCardProps) {
   const position = index + 1;
-  const resting = member.exercise === 'none';
   return (
     <li className="rounded-lg border border-line p-4">
       <div className="mb-3 flex items-center justify-between">
@@ -47,49 +102,7 @@ export function MemberCard({
           Remove
         </Button>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <TextField
-          label="Name"
-          value={member.name}
-          maxLength={32}
-          error={errors[`members.${index}.name`]}
-          onChange={(name) => onPatch({ name })}
-        />
-        <SelectField
-          label="Age group"
-          value={member.ageGroup}
-          options={AGE_GROUP_OPTIONS}
-          onChange={(ageGroup) => onPatch({ ageGroup })}
-        />
-        <SelectField
-          label="Daytime"
-          value={member.daytime}
-          options={DAYTIME_OPTIONS}
-          onChange={(daytime) => onPatch({ daytime })}
-        />
-        <SelectField
-          label="Exercise"
-          value={member.exercise}
-          options={EXERCISE_OPTIONS}
-          onChange={(exercise) => onPatch({ exercise })}
-        />
-        <SelectField
-          label="Usually at"
-          value={member.exerciseHour}
-          options={HOUR_OPTIONS}
-          disabled={resting}
-          onChange={(exerciseHour) => onPatch({ exerciseHour })}
-        />
-        <NumberField
-          label="Minutes"
-          value={member.exerciseMinutes}
-          min={0}
-          max={240}
-          error={errors[`members.${index}.exerciseMinutes`]}
-          disabled={resting}
-          onChange={(exerciseMinutes) => onPatch({ exerciseMinutes })}
-        />
-      </div>
+      <MemberFields member={member} index={index} errors={errors} onPatch={onPatch} />
       <ConditionsFieldset
         conditions={member.conditions}
         onChange={(conditions) => onPatch({ conditions })}

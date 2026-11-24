@@ -1,3 +1,4 @@
+/** Donut and legend of how far each pollutant is over its WHO guideline right now. */
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { Card, CardHeader } from '@/components/ui/primitives';
 import { useCssVars, hasWebGL } from '@/hooks/useThemeColors';
@@ -84,7 +85,6 @@ function SegmentRow({ segment, concentration, maxRatio, onHover, onLeave }: Segm
       onFocus={onHover}
       onBlur={onLeave}
       className="relative flex h-9 w-full items-center justify-between overflow-hidden rounded-md px-2 text-[13px] hover:bg-hover"
-      aria-label={`${label}: ${fmtInt(concentration)} micrograms per cubic metre, ${fmtDec(segment.ratio, 1)} times the WHO guideline`}
     >
       <span
         aria-hidden="true"
@@ -98,9 +98,14 @@ function SegmentRow({ segment, concentration, maxRatio, onHover, onLeave }: Segm
           style={{ background: segment.color }}
         />
         {label}
-      </span>
+      </span>{' '}
       <span className="tabular relative text-muted">
         {fmtInt(concentration)} µg/m³ · {fmtDec(segment.ratio, 1)}×
+      </span>
+      {/* The visible text is the button's name; this spells out its units for screen readers. */}
+      <span className="sr-only">
+        , {fmtInt(concentration)} micrograms per cubic metre, {fmtDec(segment.ratio, 1)} times the
+        WHO guideline
       </span>
     </button>
   );

@@ -1,7 +1,13 @@
+/**
+ * Shared loading, error and empty placeholders, so every page waits, fails and shows nothing in
+ * the same way. The loading and error cards announce themselves to screen readers.
+ */
+import type { ReactNode } from 'react';
 import { CloudOff } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Card, Skeleton } from './ui/primitives';
 
+/** A skeleton card that announces what is loading to screen readers. */
 export function LoadingCard({
   label = 'Loading live air data',
   className,
@@ -23,6 +29,7 @@ export function LoadingCard({
   );
 }
 
+/** An alert card for a failed air-data load, with an optional retry. */
 export function ErrorCard({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <Card role="alert" className="flex flex-col items-center gap-3 px-6 py-12 text-center">
@@ -40,6 +47,7 @@ export function ErrorCard({ message, onRetry }: { message: string; onRetry?: () 
   );
 }
 
+/** A dashed placeholder for a view with nothing to show yet. */
 export function EmptyState({
   title,
   body,
@@ -47,7 +55,7 @@ export function EmptyState({
 }: {
   title: string;
   body: string;
-  action?: React.ReactNode;
+  action?: ReactNode;
 }) {
   return (
     <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-line-strong px-6 py-12 text-center">

@@ -1,3 +1,7 @@
+/**
+ * Members section of Settings: one card per person, with adding and removing kept inside the
+ * schema's limits.
+ */
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { MemberCard } from './MemberCard';

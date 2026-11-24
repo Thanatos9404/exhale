@@ -1,3 +1,7 @@
+/**
+ * Static facts about what the forecast can plot: names and units, WHO guideline levels, colours
+ * and the reference lines for each metric. Data only; the series maths is in ./series.
+ */
 import type { Threshold } from '@/components/charts/AreaChart';
 import type { AqiStandard, Pollutant } from '@/lib/air/types';
 

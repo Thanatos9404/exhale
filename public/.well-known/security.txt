@@ -1,0 +1,5 @@
+Contact: https://github.com/Thanatos9404
+Expires: 2027-11-24T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://exhale-air.vercel.app/.well-known/security.txt
+Policy: https://github.com/Thanatos9404/exhale/blob/main/SECURITY.md

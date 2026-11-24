@@ -1,3 +1,7 @@
+/**
+ * Hero card of the Overview: the scrubbable air column beside the AQI reading and what is
+ * driving it, with a one-line outlook for the day underneath.
+ */
 import { Link } from 'wouter';
 import { ArrowUpRight } from 'lucide-react';
 import { Card, CardFooter } from '@/components/ui/primitives';

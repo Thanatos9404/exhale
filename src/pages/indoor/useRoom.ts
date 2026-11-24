@@ -1,3 +1,7 @@
+/**
+ * State of the room in the indoor lab. The room follows the household profile and live outdoor
+ * air until the user edits it, then keeps the edits until reset.
+ */
 import { useMemo, useState } from 'react';
 import type { Household } from '@/lib/profile/schema';
 import { roomFromHome, type Room } from './room';
@@ -13,10 +17,7 @@ export interface RoomControls {
   reset: () => void;
 }
 
-/**
- * The lab's room. It follows the household profile and live outdoor air until the user edits
- * it, then keeps the edits until reset.
- */
+/** The lab's room with its update, replace and reset actions. */
 export function useRoom(home: Household['home'], liveOutdoor: number): RoomControls {
   const initial = useMemo(() => roomFromHome(home, liveOutdoor), [home, liveOutdoor]);
   const [edited, setEdited] = useState<Room | null>(null);

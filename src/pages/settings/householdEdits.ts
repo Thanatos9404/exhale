@@ -1,3 +1,7 @@
+/**
+ * Pure edits to a household draft: validate it, add, remove and patch members, toggle a health
+ * condition. Each returns a new household, so the Settings form stays a thin layer over them.
+ */
 import { householdSchema, type Household, type Member } from '@/lib/profile/schema';
 
 /** Validation messages keyed by dotted field path, e.g. `members.0.name`. */
@@ -10,6 +14,18 @@ export function validateHousehold(household: Household): FieldErrors {
   const errors: FieldErrors = {};
   for (const issue of result.error.issues) errors[issue.path.join('.')] = issue.message;
   return errors;
+}
+
+/**
+ * An id for a new member that no current member uses. Based on the clock, with a counter suffix
+ * when two people are added within the same millisecond.
+ */
+export function newMemberId(household: Household, now: number): string {
+  const taken = new Set(household.members.map((member) => member.id));
+  const base = `p-${now.toString(36)}`;
+  let id = base;
+  for (let n = 2; taken.has(id); n++) id = `${base}-${n}`;
+  return id;
 }
 
 /** A new default member, named after their position in the household. */

@@ -1,3 +1,7 @@
+/**
+ * State for the Impact page: the switch for each change, and the two plans the page compares
+ * (every change applied, and only the switched-on ones), recomputed only when an input changes.
+ */
 import { useMemo, useState } from 'react';
 import type { AirSnapshot } from '@/lib/air/types';
 import { buildPlan, type PlanResult } from '@/lib/planner/engine';

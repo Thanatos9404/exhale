@@ -1,3 +1,7 @@
+/**
+ * "Deploying" a routine: the server re-fetches live data, runs the planner and asks Gemini to
+ * explain it. While that runs, the UI shows a build log of the real steps with real numbers.
+ */
 import {
   createContext,
   useCallback,
@@ -7,41 +11,21 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { z } from 'zod';
-import { requestPlan } from '@/lib/api';
-import type { PlanResponse } from '@/lib/apiTypes';
+import { useQueryClient } from '@tanstack/react-query';
 import { KEYS, readStored, writeStored } from '@/lib/storage';
-import { fetchAirSnapshot } from '@/lib/air/openMeteo';
-import { buildPlan } from '@/lib/planner/engine';
-import { MODE_LABEL } from '@/lib/science/commute';
 import { useAppState } from './AppState';
 import { PREFERS_REDUCED_MOTION, mediaMatches } from './media';
+import {
+  parseDone,
+  parseHistory,
+  todayKey,
+  type Deployment,
+  type LogKind,
+  type LogLine,
+} from './deploymentModel';
+import { runDeployment } from './runDeployment';
 
-/**
- * "Deploying" a routine: the server re-fetches live data, runs the planner and asks Gemini to
- * explain it. While that runs, the UI shows a build log of the real steps with real numbers.
- */
-
-/** Severity and source of one build-log line. */
-export type LogKind = 'info' | 'ok' | 'warn' | 'error' | 'ai';
-
-/** One line of the deploy build log. */
-export interface LogLine {
-  at: number;
-  kind: LogKind;
-  text: string;
-}
-
-/** A finished deployment: the plan response plus the facts shown in the history list. */
-export interface Deployment {
-  id: string;
-  at: string;
-  placeLabel: string;
-  cutPct: number;
-  source: PlanResponse['source'];
-  model: string | null;
-  response: PlanResponse;
-}
+export type { Deployment, LogKind, LogLine } from './deploymentModel';
 
 type Status = 'idle' | 'building' | 'ready' | 'error';
 
@@ -59,49 +43,34 @@ interface DeploymentsState {
 /** Context behind `useDeployments`; null outside `DeploymentsProvider`. */
 const Ctx = createContext<DeploymentsState | null>(null);
 
-/** Stored responses are only checked for a plan with items; the rest was written by this app. */
-const storedResponseShape = z.looseObject({
-  plan: z.looseObject({ items: z.array(z.unknown()) }),
-});
-const storedResponseSchema = z.custom<PlanResponse>(
-  (raw) => storedResponseShape.safeParse(raw).success,
-);
-
-const deploymentSchema = z.object({
-  id: z.string(),
-  at: z.string(),
-  placeLabel: z.string(),
-  cutPct: z.number(),
-  source: z.enum(['gemini', 'claude', 'rules']),
-  model: z.string().nullable(),
-  response: storedResponseSchema,
-});
-
-const parseHistory = (raw: unknown): Deployment[] | null => {
-  const r = z.array(deploymentSchema).max(8).safeParse(raw);
-  return r.success ? r.data : null;
-};
-
-const todayKey = () => new Date().toISOString().slice(0, 10);
-const parseDone = (raw: unknown) => {
-  const r = z.object({ day: z.string(), ids: z.array(z.string().max(40)).max(40) }).safeParse(raw);
-  return r.success && r.data.day === todayKey() ? new Set(r.data.ids) : null;
-};
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** The plan items ticked off today, persisted so a reload keeps them. */
+function useDoneToday() {
+  const [done, setDone] = useState<Set<string>>(
+    () => readStored(KEYS.done, parseDone) ?? new Set(),
+  );
+  const toggleDone = useCallback((id: string) => {
+    setDone((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      writeStored(KEYS.done, { day: todayKey(), ids: [...next] });
+      return next;
+    });
+  }, []);
+  return { done, toggleDone };
+}
 
 /** Runs deployments, keeps their build log and history, and tracks which plan items are done today. */
 export function DeploymentsProvider({ children }: { children: ReactNode }) {
   const { household, place } = useAppState();
+  const queryClient = useQueryClient();
   const [status, setStatus] = useState<Status>('idle');
   const [logs, setLogs] = useState<LogLine[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<Deployment[]>(
     () => readStored(KEYS.deployments, parseHistory) ?? [],
   );
-  const [done, setDone] = useState<Set<string>>(
-    () => readStored(KEYS.done, parseDone) ?? new Set(),
-  );
+  const { done, toggleDone } = useDoneToday();
   const running = useRef(false);
 
   const log = useCallback((kind: LogKind, text: string) => {
@@ -116,63 +85,7 @@ export function DeploymentsProvider({ children }: { children: ReactNode }) {
     setLogs([]);
     const pace = mediaMatches(PREFERS_REDUCED_MOTION) ? 0 : 140;
     try {
-      log('info', `Fetching live air quality for ${place.label} (Open-Meteo, CAMS model)`);
-      const air = await fetchAirSnapshot(place);
-      const now = air.hourly[air.nowIndex];
-      log(
-        'ok',
-        `${air.hourly.length} hourly readings. Now PM2.5 ${Math.round(now?.pm25 ?? 0)} µg/m³, mixing height ${Math.round(now?.blh ?? 0)} m`,
-      );
-      await sleep(pace);
-      const local = buildPlan(household, air);
-      log(
-        local.lid.stagnantHours > 0 ? 'warn' : 'ok',
-        local.lid.stagnantHours > 0
-          ? `Smog lid detected: ${local.lid.spans.map((s) => `${s.start} to ${s.end} at ${s.minBlh} m`).join(', ')}`
-          : 'No smog lid in the next 24 h',
-      );
-      await sleep(pace);
-      log(
-        'info',
-        `Simulating ${household.members.length} people × 24 h as usual: ${local.totals.baselineDoseUg.toLocaleString('en-IN')} µg inhaled`,
-      );
-      await sleep(pace);
-      const c = household.commute;
-      log(
-        'info',
-        `Testing ${local.items.length} changes (commute: ${MODE_LABEL[c.mode].toLowerCase()}, ${c.distanceKm} km)`,
-      );
-      await sleep(pace);
-      log(
-        'ai',
-        'Asking Gemini to explain the plan and tailor indoor hacks and swaps (Claude Haiku as fallback)',
-      );
-      const response = await requestPlan(place, household);
-      if (response.source === 'gemini')
-        log(
-          'ok',
-          `Gemini (${response.model}) wrote ${response.ai?.items.length ?? 0} explanations`,
-        );
-      else if (response.source === 'claude')
-        log(
-          'ok',
-          `Gemini busy, Claude (${response.model}) wrote ${response.ai?.items.length ?? 0} explanations`,
-        );
-      else log('warn', 'AI providers unavailable, using the rules engine explanations');
-      const t = response.plan.totals;
-      log(
-        'ok',
-        `Ready: dose −${Math.round(t.exposureCutPct)}%, ${t.cigarettesAvoided} cigarette-equivalents avoided, ${t.co2SavedKgWeek} kg CO2e saved a week`,
-      );
-      const dep: Deployment = {
-        id: Math.random().toString(36).slice(2, 9),
-        at: new Date().toISOString(),
-        placeLabel: place.label,
-        cutPct: t.exposureCutPct,
-        source: response.source,
-        model: response.model,
-        response,
-      };
+      const dep = await runDeployment({ place, household, log, pace, queryClient });
       setHistory((prev) => {
         const next = [dep, ...prev].slice(0, 6);
         writeStored(KEYS.deployments, next);
@@ -187,17 +100,7 @@ export function DeploymentsProvider({ children }: { children: ReactNode }) {
     } finally {
       running.current = false;
     }
-  }, [household, place, log]);
-
-  const toggleDone = useCallback((id: string) => {
-    setDone((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      writeStored(KEYS.done, { day: todayKey(), ids: [...next] });
-      return next;
-    });
-  }, []);
+  }, [household, place, log, queryClient]);
 
   const value = useMemo(
     () => ({ status, logs, latest: history[0] ?? null, history, deploy, error, done, toggleDone }),

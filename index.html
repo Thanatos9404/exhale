@@ -17,6 +17,17 @@
       content="Live smog forecasts, a GenAI routine planner and the impact of every choice, for families in polluted cities."
     />
     <meta property="og:type" content="website" />
+    <!-- The first data requests go to these two hosts; open the connections while the app loads. -->
+    <link rel="preconnect" href="https://air-quality-api.open-meteo.com" crossorigin />
+    <link rel="preconnect" href="https://api.open-meteo.com" crossorigin />
+    <!-- Body text is set in this one file; fetch it alongside the CSS that asks for it. -->
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href="/node_modules/@fontsource-variable/geist/files/geist-latin-wght-normal.woff2"
+      crossorigin
+    />
     <script src="/theme-init.js"></script>
   </head>
   <body>

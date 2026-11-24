@@ -1,3 +1,7 @@
+/**
+ * Render helpers for component tests: mount UI inside the same providers the app uses, at an
+ * in-memory route, and check the result with axe-core.
+ */
 import type { ReactElement } from 'react';
 import { render } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

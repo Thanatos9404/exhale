@@ -1,3 +1,7 @@
+/**
+ * Forecast card that explains the winter inversion (the "smog lid") with a diagram driven by the
+ * current mixing height and wind. It assumes a typical mixing height when the feed has none.
+ */
 import { Card, CardHeader } from '@/components/ui/primitives';
 import { InversionDiagram } from '@/components/InversionDiagram';
 import type { HourPoint } from '@/lib/air/types';

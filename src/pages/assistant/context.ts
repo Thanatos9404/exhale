@@ -1,3 +1,7 @@
+/**
+ * What the Assistant shows around a conversation: starter questions fitted to the household and
+ * city, and short text summaries of the air and the plan. Pure functions with no React.
+ */
 import type { Place } from '@/lib/air/types';
 import type { PlanResult } from '@/lib/planner/engine';
 import type { Household, Member } from '@/lib/profile/schema';
@@ -40,9 +44,11 @@ export function airSummary(plan: PlanResult | null): string {
     : 'Loading live data…';
 }
 
-/** Current AQI and PM2.5. */
+/** Current AQI and PM2.5; a missing reading says so rather than showing zero. */
 export function airNowText(plan: PlanResult): string {
-  return `AQI ${plan.risk.aqi} · PM2.5 ${fmtInt(plan.current.pm25 ?? 0)} µg/m³`;
+  const pm25 = plan.current.pm25;
+  const reading = pm25 === null ? 'n/a' : `${fmtInt(pm25)} µg/m³`;
+  return `AQI ${plan.risk.aqi} · PM2.5 ${reading}`;
 }
 
 /** The first smog-lid span of the day, or "None". */

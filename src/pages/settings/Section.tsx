@@ -1,3 +1,7 @@
+/**
+ * The card every Settings section sits in, and its save footer. The card is also the anchor the
+ * side navigation jumps to and a labelled region for screen readers.
+ */
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardFooter } from '@/components/ui/primitives';

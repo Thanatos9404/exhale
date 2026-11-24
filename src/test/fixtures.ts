@@ -1,3 +1,8 @@
+/**
+ * Air-data fixtures shared by the unit and end-to-end tests: one synthetic Delhi winter day with
+ * a night-time inversion, as hourly points, as a full snapshot and as raw Open-Meteo payloads.
+ * Dates and values are fixed so every test sees the same air.
+ */
 import type { AirSnapshot, HourPoint } from '@/lib/air/types';
 
 /**

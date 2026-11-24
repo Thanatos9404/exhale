@@ -1,3 +1,7 @@
+/**
+ * Forecast card that answers "when is the air best?": the few lowest-PM2.5 hours ahead, cleanest
+ * first, each with a bar so they can be compared at a glance.
+ */
 import { Card, CardHeader } from '@/components/ui/primitives';
 import type { HourPoint } from '@/lib/air/types';
 import { isLidHour } from '@/lib/science/meteo';

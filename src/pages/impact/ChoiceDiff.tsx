@@ -1,3 +1,8 @@
+/**
+ * The habit-versus-plan diff on the Impact page, laid out like a code review: one hunk per
+ * change, each with a switch to leave it out. The page owns the switches and recomputes the day
+ * from them.
+ */
 import { MessageSquareText } from 'lucide-react';
 import { Card, CardFooter, CardHeader, Switch } from '@/components/ui/primitives';
 import { Button } from '@/components/ui/Button';

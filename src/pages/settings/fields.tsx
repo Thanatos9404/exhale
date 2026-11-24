@@ -1,3 +1,7 @@
+/**
+ * Form fields shared by the Settings sections: text, number, select and toggle row. Each wires
+ * its label, bounds and error state the same way, so a section only says what it edits.
+ */
 import { Field, Switch, inputClass } from '@/components/ui/primitives';
 import type { Option } from './options';
 

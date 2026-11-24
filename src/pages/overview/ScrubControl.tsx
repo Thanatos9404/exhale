@@ -1,3 +1,7 @@
+/**
+ * Time control of the Overview: a range slider with the hour strip under it, for moving the air
+ * column through the coming hours.
+ */
 import { fmtInt } from '@/lib/format';
 import { HourStrip } from './HourStrip';
 import type { ScrubbedHour } from './scrub';

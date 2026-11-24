@@ -1,3 +1,8 @@
+/**
+ * The Overview page: the air right now, a scrubber through the coming hours, today's routine and
+ * each person's dose budget. It owns only the scrubber position; everything else is derived from
+ * the air data and the plan.
+ */
 import { useMemo, useState } from 'react';
 import { ErrorCard, LoadingCard } from '@/components/states';
 import { useAqiSeries, useLocalPlan } from '@/hooks/useAir';

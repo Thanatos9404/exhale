@@ -1,3 +1,4 @@
+/** General section of Settings: the household name and the AQI scale every reading is shown in. */
 import { Segmented } from '@/components/ui/primitives';
 import { TextField } from './fields';
 import { SaveFooter, Section } from './Section';

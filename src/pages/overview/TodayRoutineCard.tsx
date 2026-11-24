@@ -1,3 +1,7 @@
+/**
+ * Preview of today's routine on the Overview: the first few actions with the latest deployment's
+ * explanations and done ticks, and a link to the full Routine page.
+ */
 import { Link } from 'wouter';
 import { Card, CardHeader } from '@/components/ui/primitives';
 import { RoutineRow } from '@/components/routine';

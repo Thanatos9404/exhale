@@ -1,3 +1,7 @@
+/**
+ * Quick wins card of the indoor lab: single changes ranked by the indoor PM2.5 they would leave,
+ * each applied with one click. The ranking comes from ./room; this card only lists it.
+ */
 import { Card, CardHeader } from '@/components/ui/primitives';
 import { Button } from '@/components/ui/Button';
 import { fmtInt } from '@/lib/format';

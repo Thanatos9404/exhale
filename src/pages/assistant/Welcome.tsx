@@ -1,3 +1,7 @@
+/**
+ * The Assistant's empty state: a one-line summary of the air and a set of starter questions,
+ * shown while the conversation has no messages.
+ */
 import { Globe } from 'lucide-react';
 import { ParticleOrb } from '@/components/ParticleOrb';
 import type { PlanResult } from '@/lib/planner/engine';

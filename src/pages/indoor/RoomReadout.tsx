@@ -1,4 +1,6 @@
-import { AqiStatus, Card, CardFooter, aqiVar } from '@/components/ui/primitives';
+/** The simulated room's readout: the particle view, indoor PM2.5 and what it means. */
+import type { ReactNode } from 'react';
+import { AqiStatus, Card, CardFooter, aqiTextVar } from '@/components/ui/primitives';
 import { RoomParticles } from '@/components/RoomParticles';
 import type { AqiStandard } from '@/lib/air/types';
 import { cigarettesPerDay } from '@/lib/science/exposure';
@@ -13,6 +15,16 @@ interface RoomReadoutProps {
   room: Room;
   result: RoomResult;
   standard: AqiStandard;
+}
+
+/** One secondary reading: a quiet label over its value. */
+function Fact({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <dt className="text-[13px] text-muted">{label}</dt>
+      <dd className="tabular mt-1 text-sm font-medium text-fg">{children}</dd>
+    </div>
+  );
 }
 
 /** The simulated room: particle view, indoor PM2.5 with its AQI category, and what it means. */
@@ -37,7 +49,7 @@ export function RoomReadout({ room, result, standard }: RoomReadoutProps) {
             <dd className="mt-1 flex items-baseline gap-2">
               <span
                 className="tabular text-[40px] leading-none font-semibold tracking-[-0.04em]"
-                style={{ color: aqiVar(cat.level) }}
+                style={{ color: aqiTextVar(cat.level) }}
               >
                 {fmtInt(result.indoorPm25)}
               </span>
@@ -47,24 +59,15 @@ export function RoomReadout({ room, result, standard }: RoomReadoutProps) {
               <AqiStatus level={cat.level} label={cat.label} />
             </dd>
           </div>
-          <div>
-            <dt className="text-[13px] text-muted">Compared with outdoors</dt>
-            <dd className="tabular mt-1 text-sm font-medium text-fg">
-              {room.outdoor > 0 ? `${fmtInt(result.ratio * 100)}% of outdoor air` : 'n/a'}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-[13px] text-muted">Settles in about</dt>
-            <dd className="tabular mt-1 text-sm font-medium text-fg">
-              {fmtInt(result.timeConstantMin * SETTLE_TIME_CONSTANTS)} min
-            </dd>
-          </div>
-          <div>
-            <dt className="text-[13px] text-muted">A full day in this air</dt>
-            <dd className="tabular mt-1 text-sm font-medium text-fg">
-              {fmtCig(cigarettesPerDay(result.indoorPm25))} cigarettes
-            </dd>
-          </div>
+          <Fact label="Compared with outdoors">
+            {room.outdoor > 0 ? `${fmtInt(result.ratio * 100)}% of outdoor air` : 'n/a'}
+          </Fact>
+          <Fact label="Settles in about">
+            {fmtInt(result.timeConstantMin * SETTLE_TIME_CONSTANTS)} min
+          </Fact>
+          <Fact label="A full day in this air">
+            {fmtCig(cigarettesPerDay(result.indoorPm25))} cigarettes
+          </Fact>
         </dl>
       </div>
       <CardFooter>

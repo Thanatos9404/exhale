@@ -1,5 +1,6 @@
+/** The settings danger zone: restore the sample household or wipe this browser's data. */
 import { useState } from 'react';
-import { toast } from 'sonner';
+import { notify } from '@/components/shell/toasts';
 import { Button } from '@/components/ui/Button';
 import { useAppState } from '@/state/AppState';
 
@@ -10,7 +11,7 @@ export function DataSection() {
 
   const restoreSample = () => {
     resetHousehold();
-    toast.success('Sample household restored');
+    notify.success('Sample household restored');
   };
 
   // Two-step delete: the first click arms the button, the second wipes the data.
@@ -21,7 +22,7 @@ export function DataSection() {
     }
     clearLocalData();
     setConfirmDelete(false);
-    toast.success('All local data deleted');
+    notify.success('All local data deleted');
   };
 
   return (

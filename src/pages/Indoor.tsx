@@ -1,3 +1,8 @@
+/**
+ * The Indoor lab page. People spend most of the day indoors, so this page lets them change one
+ * room and watch the modelled PM2.5 respond. It starts from the household's home and live
+ * outdoor air.
+ */
 import { RotateCcw } from 'lucide-react';
 import { PageBody, PageHeader } from '@/components/shell/Shell';
 import { Button } from '@/components/ui/Button';

@@ -1,3 +1,8 @@
+/**
+ * The Impact page. It makes the effect of each choice explicit: usage-style meters, a diff of
+ * habit versus plan, and switches that recompute the whole day with the engine, so people can
+ * see what each change is worth on its own and combined.
+ */
 import type { ReactNode } from 'react';
 import { PageBody, PageHeader } from '@/components/shell/Shell';
 import { ErrorCard, LoadingCard } from '@/components/states';
@@ -9,11 +14,7 @@ import { MemberUsage } from './impact/MemberUsage';
 import { diffItems } from './impact/plans';
 import { useChangeSwitches, useImpactPlans } from './impact/useImpactPlans';
 
-/**
- * The impact of each choice, made explicit: usage-style meters, a diff of habit versus plan,
- * and toggles that recompute the whole day with the engine so people can see what each
- * change is worth on its own and combined.
- */
+/** Impact page: headline totals, the habit-versus-plan diff and each person's usage. */
 export default function Impact() {
   const { household } = useAppState();
   const air = useAir();

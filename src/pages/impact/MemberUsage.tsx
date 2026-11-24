@@ -1,3 +1,7 @@
+/**
+ * Per-person usage on the Impact page: each member's inhaled dose against their own WHO budget,
+ * as a ring with the numbers beside it.
+ */
 import { Avatar, Card, CardHeader } from '@/components/ui/primitives';
 import { useAppState } from '@/state/AppState';
 import type { MemberSummary, PlanResult } from '@/lib/planner/engine';

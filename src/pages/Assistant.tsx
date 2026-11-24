@@ -1,3 +1,4 @@
+/** The assistant page: the conversation, its composer and what Exhale knows, side by side. */
 import { Trash2 } from 'lucide-react';
 import { PageBody, PageHeader } from '@/components/shell/Shell';
 import { Button } from '@/components/ui/Button';
@@ -50,12 +51,11 @@ export default function Assistant() {
               empty={<Welcome plan={plan} suggestions={suggestions} onAsk={askSuggestion} />}
             />
             <Composer
-              draft={chat.draft}
-              onDraftChange={chat.setDraft}
+              reset={chat.draftReset}
               search={chat.search}
               onSearchChange={chat.setSearch}
               busy={chat.streaming !== null}
-              onSend={() => void chat.send(chat.draft)}
+              onSend={(text) => void chat.send(text)}
               onStop={chat.stop}
             />
           </Card>

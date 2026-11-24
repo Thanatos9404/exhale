@@ -1,3 +1,7 @@
+/**
+ * The Settings page: the form for the household profile that every recommendation is computed
+ * from. All sections edit one shared draft, and the profile is stored only in this browser.
+ */
 import { PageBody, PageHeader } from '@/components/shell/Shell';
 import { CommuteSection } from './settings/CommuteSection';
 import { DataSection } from './settings/DataSection';

@@ -1,18 +1,18 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
-import { useReducedMotion } from 'motion/react';
-import * as THREE from 'three';
-import { useCssVars, useInView } from '@/hooks/useThemeColors';
-import type { AqiLevel } from '@/lib/air/aqi';
-import { seededRandom } from './random';
-
 /**
  * The air column: a city block under its smog. Particle count follows PM2.5, the translucent
  * lid sits at the forecast boundary-layer height and particles drift with the wind.
  * When the lid drops at night the same particles are squeezed into a few metres of air,
  * which is exactly why winter smog gets so dense.
  */
+import { useRef } from 'react';
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
+import { usePrefersReducedMotion } from '@/hooks/useMediaQuery';
+import { useCssVars, useInView } from '@/hooks/useThemeColors';
+import type { AqiLevel } from '@/lib/air/aqi';
+import { City, Lid, Smog } from './AirColumnScene';
+
+export { lidY, visibleFraction } from './smogShader';
 
 export interface AirColumnProps {
   pm25: number;
@@ -21,213 +21,15 @@ export interface AirColumnProps {
   level: AqiLevel;
 }
 
-const MAX_PARTICLES = 9000;
-const RADIUS = 5;
-
-/** Maps mixing height (m) to scene units, compressing the top so a 15 m lid and a 1.5 km one both read. */
-export function lidY(blh: number): number {
-  const t = Math.min(1, Math.max(0, blh) / 1500);
-  return 0.35 + Math.pow(t, 0.6) * 3.9;
-}
-
-/** Share of the particle pool drawn for a PM2.5 level (µg/m³); 220 and above fills the column. */
-export function visibleFraction(pm25: number): number {
-  return Math.min(1, Math.max(0.04, pm25 / 220));
-}
-
-const vertex = /* glsl */ `
-  uniform float uTime;
-  uniform float uLid;
-  uniform float uWind;
-  uniform float uDensity;
-  uniform float uPixel;
-  attribute vec4 aSeed;
-  varying float vAlpha;
-  void main() {
-    float rank = aSeed.w;
-    float escaped = step(0.9, aSeed.z);
-    float ceiling = mix(uLid, 5.6, escaped);
-    vec3 p = position;
-    p.y = 0.04 + aSeed.y * ceiling * 0.97;
-    float drift = uTime * (0.03 + uWind * 0.012) * (0.6 + aSeed.x * 0.8);
-    p.x = mod(p.x + drift + ${RADIUS.toFixed(1)}, ${(RADIUS * 2).toFixed(1)}) - ${RADIUS.toFixed(1)};
-    p.y += sin(uTime * 0.6 + aSeed.x * 31.0) * 0.05 * min(ceiling, 1.0);
-    p.z += cos(uTime * 0.4 + aSeed.y * 17.0) * 0.06;
-    float inside = step(length(p.xz), ${RADIUS.toFixed(1)});
-    float on = step(rank, uDensity) * inside;
-    vec4 mv = modelViewMatrix * vec4(p, 1.0);
-    gl_Position = projectionMatrix * mv;
-    gl_PointSize = on * uPixel * (1.6 + aSeed.x * 2.0) * (19.0 / -mv.z);
-    vAlpha = on * mix(0.85, 0.25, escaped);
-  }
-`;
-
-const fragment = /* glsl */ `
-  uniform vec3 uColor;
-  varying float vAlpha;
-  void main() {
-    vec2 c = gl_PointCoord - 0.5;
-    float d = length(c);
-    if (d > 0.5) discard;
-    float soft = smoothstep(0.5, 0.0, d);
-    gl_FragColor = vec4(uColor, soft * vAlpha);
-  }
-`;
-
-interface SmogProps extends Omit<AirColumnProps, 'level'> {
-  color: string;
-  animate: boolean;
-}
-
-/** Shader uniforms start at the live values; later changes are eased in per frame. */
-function createSmogUniforms({ pm25, blh, wind, color }: Omit<SmogProps, 'animate'>) {
-  return {
-    uTime: { value: 0 },
-    uLid: { value: lidY(blh) },
-    uWind: { value: wind },
-    uDensity: { value: visibleFraction(pm25) },
-    uPixel: { value: Math.min(2, window.devicePixelRatio || 1) },
-    uColor: { value: new THREE.Color(color) },
-  };
-}
-
-type SmogUniforms = ReturnType<typeof createSmogUniforms>;
-
-function Smog({ pm25, blh, wind, color, animate }: SmogProps) {
-  const material = useRef<THREE.ShaderMaterial>(null);
-  const geometry = useMemo(() => {
-    const rand = seededRandom(7);
-    const pos = new Float32Array(MAX_PARTICLES * 3);
-    const seed = new Float32Array(MAX_PARTICLES * 4);
-    for (let i = 0; i < MAX_PARTICLES; i++) {
-      const r = Math.sqrt(rand()) * RADIUS;
-      const a = rand() * Math.PI * 2;
-      pos.set([Math.cos(a) * r, 0, Math.sin(a) * r], i * 3);
-      seed.set([rand(), rand(), rand(), rand()], i * 4);
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    g.setAttribute('aSeed', new THREE.BufferAttribute(seed, 4));
-    return g;
-  }, []);
-
-  // Built once; the frame loop eases them toward the live targets through the material ref.
-  const [initialUniforms] = useState(() => createSmogUniforms({ pm25, blh, wind, color }));
-
-  useFrame((_, delta) => {
-    if (!material.current) return;
-    // three.js types uniforms as an open record; this material was built by createSmogUniforms.
-    const u = material.current.uniforms as SmogUniforms;
-    const k = animate ? Math.min(1, delta * 3) : 1;
-    if (animate) u.uTime.value += delta;
-    u.uLid.value += (lidY(blh) - u.uLid.value) * k;
-    u.uDensity.value += (visibleFraction(pm25) - u.uDensity.value) * k;
-    u.uWind.value += (wind - u.uWind.value) * k;
-    u.uColor.value.lerp(new THREE.Color(color), k);
-  });
-
-  return (
-    <points geometry={geometry} frustumCulled={false}>
-      <shaderMaterial
-        ref={material}
-        vertexShader={vertex}
-        fragmentShader={fragment}
-        uniforms={initialUniforms}
-        transparent
-        depthWrite={false}
-        blending={THREE.NormalBlending}
-      />
-    </points>
-  );
-}
-
-function Lid({ blh, color }: { blh: number; color: string }) {
-  const group = useRef<THREE.Group>(null);
-  useFrame((_, delta) => {
-    if (!group.current) return;
-    group.current.position.y += (lidY(blh) - group.current.position.y) * Math.min(1, delta * 3);
-  });
-  return (
-    <group ref={group} position={[0, lidY(blh), 0]}>
-      <mesh rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[RADIUS + 0.15, 96]} />
-        <meshBasicMaterial
-          color={color}
-          transparent
-          opacity={0.1}
-          side={THREE.DoubleSide}
-          depthWrite={false}
-        />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[RADIUS + 0.1, RADIUS + 0.16, 128]} />
-        <meshBasicMaterial color={color} transparent opacity={0.75} side={THREE.DoubleSide} />
-      </mesh>
-    </group>
-  );
-}
-
-function City({ color, ground }: { color: string; ground: string }) {
-  const mesh = useRef<THREE.InstancedMesh>(null);
-  const blocks = useMemo(() => {
-    const rand = seededRandom(42);
-    const out: { x: number; z: number; h: number; w: number }[] = [];
-    for (let gx = -6; gx <= 6; gx++) {
-      for (let gz = -6; gz <= 6; gz++) {
-        const x = gx * 0.72 + (rand() - 0.5) * 0.1;
-        const z = gz * 0.72 + (rand() - 0.5) * 0.1;
-        const d = Math.hypot(x, z);
-        if (d > RADIUS - 0.4 || rand() < 0.18) continue;
-        const centre = 1 - d / RADIUS;
-        out.push({
-          x,
-          z,
-          w: 0.38 + rand() * 0.18,
-          h: 0.15 + rand() * 0.55 + centre * centre * 1.1 * rand(),
-        });
-      }
-    }
-    return out;
-  }, []);
-
-  useLayoutEffect(() => {
-    const instanced = mesh.current;
-    if (!instanced) return;
-    const m = new THREE.Matrix4();
-    blocks.forEach((b, i) => {
-      m.compose(
-        new THREE.Vector3(b.x, b.h / 2, b.z),
-        new THREE.Quaternion(),
-        new THREE.Vector3(b.w, b.h, b.w),
-      );
-      instanced.setMatrixAt(i, m);
-    });
-    instanced.instanceMatrix.needsUpdate = true;
-  }, [blocks]);
-
-  return (
-    <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.001, 0]}>
-        <circleGeometry args={[RADIUS + 0.6, 96]} />
-        <meshStandardMaterial color={ground} roughness={1} />
-      </mesh>
-      <instancedMesh ref={mesh} args={[undefined, undefined, blocks.length]}>
-        <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial color={color} roughness={0.85} metalness={0.05} />
-      </instancedMesh>
-    </group>
-  );
-}
-
 /** The Overview hero: a 3D city block whose smog density and lid height follow the live forecast. */
 export default function AirColumn(props: AirColumnProps) {
   const wrap = useRef<HTMLDivElement>(null);
   const inView = useInView(wrap);
-  const reduced = useReducedMotion();
+  const reduced = usePrefersReducedMotion();
   const v = useCssVars(['subtle', 'line', 'amber', `aqi-${props.level}`] as const);
   const animate = inView && !reduced;
   return (
-    <div ref={wrap} className="absolute inset-0">
+    <div ref={wrap} className="absolute inset-0" aria-hidden="true">
       <Canvas
         dpr={[1, 1.75]}
         frameloop={animate ? 'always' : 'demand'}

@@ -1,3 +1,7 @@
+/**
+ * Budget card of the Overview: each person's inhaled PM2.5 today against their own WHO-guideline
+ * budget, with the usual day and the planned day on one bar.
+ */
 import { Avatar, Card, CardFooter, CardHeader } from '@/components/ui/primitives';
 import { fmtCig, fmtDec, fmtDose } from '@/lib/format';
 import type { MemberSummary, PlanResult } from '@/lib/planner/engine';

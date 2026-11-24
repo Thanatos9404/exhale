@@ -1,3 +1,4 @@
+/** The forecast page: the metric tabs and their chart, the cleanest hours and what drives the smog. */
 import { useState, type ReactNode } from 'react';
 import { PageBody, PageHeader } from '@/components/shell/Shell';
 import { Card } from '@/components/ui/primitives';
@@ -7,12 +8,14 @@ import { useAppState } from '@/state/AppState';
 import { ChartPanel } from './forecast/ChartPanel';
 import { CleanestHours } from './forecast/CleanestHours';
 import { ForecastControls } from './forecast/ForecastControls';
-import { MetricTabs } from './forecast/MetricTabs';
+import { METRIC_PANEL_ID, MetricTabs } from './forecast/MetricTabs';
 import { PollutantMix } from './forecast/PollutantMix';
 import { SmogLidCard } from './forecast/SmogLidCard';
 import { upcomingHours } from './forecast/series';
 import { useChartView } from './forecast/useChartView';
 import type { ForecastRange, Metric } from './forecast/metrics';
+
+const errorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error');
 
 /** The forecast page: per-metric chart with smog-lid bands, pollutant mix and cleanest hours. */
 export default function Forecast() {
@@ -21,15 +24,18 @@ export default function Forecast() {
   const aqi = useAqiSeries();
   const [metric, setMetric] = useState<Metric>('aqi');
   const [range, setRange] = useState<ForecastRange>('48');
-  const view = useChartView(air, aqi?.instant, metric, range, plan?.cleanWindow?.start);
+  const view = useChartView({
+    air,
+    instantAqi: aqi?.instant,
+    metric,
+    range,
+    cleanStart: plan?.cleanWindow?.start,
+  });
 
   if (isError)
     return (
       <Shell>
-        <ErrorCard
-          message={error instanceof Error ? error.message : 'Unknown error'}
-          onRetry={() => void refetch()}
-        />
+        <ErrorCard message={errorMessage(error)} onRetry={() => void refetch()} />
       </Shell>
     );
   const now = air?.hourly[air.nowIndex];
@@ -39,6 +45,7 @@ export default function Forecast() {
         <LoadingCard className="h-[420px]" />
       </Shell>
     );
+  const tabs = { metric, air, instantAqi: aqi.instant };
 
   return (
     <Shell
@@ -52,7 +59,7 @@ export default function Forecast() {
       }
     >
       <Card>
-        <MetricTabs metric={metric} onSelect={setMetric} air={air} instantAqi={aqi.instant} />
+        <MetricTabs {...tabs} onSelect={setMetric} panelId={METRIC_PANEL_ID} />
         <ChartPanel
           metric={metric}
           view={view}

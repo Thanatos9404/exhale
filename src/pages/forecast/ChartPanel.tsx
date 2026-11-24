@@ -1,6 +1,8 @@
-import { useState } from 'react';
+/** The selected metric's chart with its legend and an optional hour-by-hour data table. */
+import { useMemo, useState } from 'react';
 import { AreaChart } from '@/components/charts/AreaChart';
 import type { AqiStandard } from '@/lib/air/types';
+import { METRIC_PANEL_ID, metricTabId } from './MetricTabs';
 import { METRIC_INFO, THRESHOLDS, type ForecastRange, type Metric } from './metrics';
 import { hourRows, type ChartView, type HourRow } from './series';
 
@@ -16,8 +18,15 @@ interface ChartPanelProps {
 export function ChartPanel({ metric, view, standard, placeLabel, range }: ChartPanelProps) {
   const [showTable, setShowTable] = useState(false);
   const active = METRIC_INFO[metric];
+  // Kept stable so the chart's memoised layers are not redrawn when only the table toggles.
+  const thresholds = useMemo(() => THRESHOLDS[metric](standard), [metric, standard]);
   return (
-    <div role="tabpanel" aria-label={`${active.label} chart`} className="p-4 md:p-5">
+    <div
+      role="tabpanel"
+      id={METRIC_PANEL_ID}
+      aria-labelledby={metricTabId(metric)}
+      className="p-4 md:p-5"
+    >
       <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted">
         <span className="inline-flex items-center gap-2">
           <span className="h-0.5 w-4 bg-blue" aria-hidden="true" /> {active.label}
@@ -46,7 +55,7 @@ export function ChartPanel({ metric, view, standard, placeLabel, range }: ChartP
         data={view.points}
         nowIndex={view.nowLocal}
         bands={view.bands}
-        thresholds={THRESHOLDS[metric](standard)}
+        thresholds={thresholds}
         unit={active.unit || 'AQI'}
         ariaLabel={`${active.label} for ${placeLabel}, past 12 hours and next ${range} hours`}
       />

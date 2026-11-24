@@ -1,3 +1,7 @@
+/**
+ * In-page navigation for Settings: a link to each section, laid out as a row on phones and a
+ * sticky column on wider screens.
+ */
 import { SECTIONS } from './options';
 
 /** In-page links to each settings section; a row on phones, a sticky column on wider screens. */

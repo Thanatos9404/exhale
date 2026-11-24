@@ -1,3 +1,7 @@
+/**
+ * Choice lists for the Settings form, with their labels. Values are typed from the household
+ * schema, so an option cannot drift from what the schema accepts.
+ */
 import { commuteModeSchema, type Household, type Member } from '@/lib/profile/schema';
 import { MODE_LABEL, type CommuteMode } from '@/lib/science/commute';
 import { PURIFIER_CADR } from '@/lib/science/indoor';

@@ -1,3 +1,8 @@
+/**
+ * Pure data shaping for the Forecast page. It turns an air snapshot into what each part of the
+ * page draws: the chart window with its bands, the data-table rows, metric readings, the
+ * pollutant mix and the cleanest hours. No React.
+ */
 import type { Band, ChartPoint } from '@/components/charts/AreaChart';
 import type { AqiResult } from '@/lib/air/aqi';
 import type { AirSnapshot, HourPoint, Pollutant } from '@/lib/air/types';

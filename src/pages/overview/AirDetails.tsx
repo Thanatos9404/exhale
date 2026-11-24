@@ -1,5 +1,6 @@
+/** The overview's reading for the scrubbed hour: the AQI, its category and what is driving it. */
 import type { ReactNode } from 'react';
-import { AqiStatus, Dot, aqiVar } from '@/components/ui/primitives';
+import { AqiStatus, Dot, aqiTextVar } from '@/components/ui/primitives';
 import { POLLUTANT_LABEL, aqiCategory } from '@/lib/air/aqi';
 import type { AirSnapshot, AqiStandard } from '@/lib/air/types';
 import { fmtCig, fmtDec, fmtInt, relativeTime } from '@/lib/format';
@@ -91,7 +92,7 @@ function AqiHeadline({ aqi, standard }: AqiHeadlineProps) {
       <dd className="mt-1 flex items-baseline gap-3">
         <span
           className="tabular text-[44px] leading-none font-semibold tracking-[-0.04em]"
-          style={{ color: aqiVar(category.level) }}
+          style={{ color: aqiTextVar(category.level) }}
         >
           {aqi}
         </span>

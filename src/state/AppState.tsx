@@ -1,3 +1,7 @@
+/**
+ * App-wide state that belongs to the user: the household profile, the selected place and the theme.
+ * Everything lives in this browser only; nothing is stored on a server.
+ */
 import {
   createContext,
   useCallback,
@@ -12,11 +16,6 @@ import { DEFAULT_HOUSEHOLD, parseHousehold, type Household } from '@/lib/profile
 import type { Place } from '@/lib/air/types';
 import { KEYS, readStored, removeStored, writeStored } from '@/lib/storage';
 import { PREFERS_DARK, mediaMatches, mediaQuery } from './media';
-
-/**
- * App-wide state that belongs to the user: the household profile, the selected place and the theme.
- * Everything lives in this browser only; nothing is stored on a server.
- */
 
 /** Where the app starts before the user picks a place. */
 export const DEFAULT_PLACE: Place = {
@@ -65,25 +64,18 @@ function applyTheme(pref: ThemePref) {
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
 }
 
-/** Holds the household, place and theme for the whole app and persists them to this browser. */
-export function AppStateProvider({ children }: { children: ReactNode }) {
-  const [household, setHouseholdState] = useState<Household>(
-    () => readStored(KEYS.household, parseHousehold) ?? DEFAULT_HOUSEHOLD,
-  );
-  const [place, setPlaceState] = useState<Place>(
-    () => readStored(KEYS.place, parsePlace) ?? DEFAULT_PLACE,
-  );
-  const [recentPlaces, setRecent] = useState<Place[]>(
-    () => readStored(`${KEYS.place}.recent`, parseRecent) ?? [],
-  );
-  const [theme, setThemeState] = useState<ThemePref>(() => {
-    try {
-      const t = localStorage.getItem(KEYS.theme);
-      return t === 'light' || t === 'dark' || t === 'system' ? t : 'dark';
-    } catch {
-      return 'dark';
-    }
-  });
+function readStoredTheme(): ThemePref {
+  try {
+    const t = localStorage.getItem(KEYS.theme);
+    return t === 'light' || t === 'dark' || t === 'system' ? t : 'dark';
+  } catch {
+    return 'dark';
+  }
+}
+
+/** The theme preference: applied to the document, kept in sync with the OS and persisted. */
+function useThemePref() {
+  const [theme, setThemeState] = useState<ThemePref>(readStoredTheme);
 
   useEffect(() => {
     applyTheme(theme);
@@ -94,12 +86,26 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     return () => mq?.removeEventListener('change', onChange);
   }, [theme]);
 
-  const setHousehold = useCallback((h: Household) => {
-    setHouseholdState(h);
-    writeStored(KEYS.household, h);
+  const setTheme = useCallback((t: ThemePref) => {
+    setThemeState(t);
+    try {
+      localStorage.setItem(KEYS.theme, t);
+    } catch {
+      /* ignore */
+    }
   }, []);
 
-  const resetHousehold = useCallback(() => setHousehold(DEFAULT_HOUSEHOLD), [setHousehold]);
+  return { theme, setTheme };
+}
+
+/** The selected place and the recently used ones, both persisted. */
+function usePlaces() {
+  const [place, setPlaceState] = useState<Place>(
+    () => readStored(KEYS.place, parsePlace) ?? DEFAULT_PLACE,
+  );
+  const [recentPlaces, setRecent] = useState<Place[]>(
+    () => readStored(`${KEYS.place}.recent`, parseRecent) ?? [],
+  );
 
   const setPlace = useCallback((p: Place) => {
     const clean: Place = {
@@ -117,22 +123,40 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const setTheme = useCallback((t: ThemePref) => {
-    setThemeState(t);
-    try {
-      localStorage.setItem(KEYS.theme, t);
-    } catch {
-      /* ignore */
-    }
+  const resetPlaces = useCallback(() => {
+    setPlaceState(DEFAULT_PLACE);
+    setRecent([]);
   }, []);
+
+  return { place, recentPlaces, setPlace, resetPlaces };
+}
+
+/** Holds the household, place and theme for the whole app and persists them to this browser. */
+export function AppStateProvider({ children }: { children: ReactNode }) {
+  const [household, setHouseholdState] = useState<Household>(
+    () => readStored(KEYS.household, parseHousehold) ?? DEFAULT_HOUSEHOLD,
+  );
+  const { place, recentPlaces, setPlace, resetPlaces } = usePlaces();
+  const { theme, setTheme } = useThemePref();
+
+  const setHousehold = useCallback((h: Household) => {
+    setHouseholdState(h);
+    writeStored(KEYS.household, h);
+  }, []);
+
+  // A fresh copy each time, so a reset always counts as a change and discards unsaved edits
+  // even when the sample household is already the saved one.
+  const resetHousehold = useCallback(
+    () => setHousehold(structuredClone(DEFAULT_HOUSEHOLD)),
+    [setHousehold],
+  );
 
   const clearLocalData = useCallback(() => {
     Object.values(KEYS).forEach(removeStored);
     removeStored(`${KEYS.place}.recent`);
-    setHouseholdState(DEFAULT_HOUSEHOLD);
-    setPlaceState(DEFAULT_PLACE);
-    setRecent([]);
-  }, []);
+    setHouseholdState(structuredClone(DEFAULT_HOUSEHOLD));
+    resetPlaces();
+  }, [resetPlaces]);
 
   const value = useMemo(
     () => ({

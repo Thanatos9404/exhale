@@ -1,3 +1,7 @@
+/**
+ * Hand-off of a question from the command menu to the Assistant page. Each question is delivered
+ * once, however often the page re-renders while the chat is busy.
+ */
 import { useEffect, useEffectEvent } from 'react';
 import { useCommandMenu } from '@/components/shell/CommandMenu';
 

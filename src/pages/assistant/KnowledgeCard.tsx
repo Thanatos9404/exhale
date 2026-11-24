@@ -1,3 +1,7 @@
+/**
+ * The "What Exhale knows" card beside the chat. It lists the model and every piece of context
+ * sent with a question, so people can see what the assistant is working from.
+ */
 import type { ReactNode } from 'react';
 import { Badge, Card, CardHeader, Dot } from '@/components/ui/primitives';
 import { useHealth } from '@/hooks/useAir';

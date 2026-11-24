@@ -1,3 +1,7 @@
+/**
+ * Header controls of the Forecast page: the AQI standard and how far ahead the chart looks. Both
+ * choices are owned by the page; this component only renders the two pickers.
+ */
 import { Segmented } from '@/components/ui/primitives';
 import type { AqiStandard } from '@/lib/air/types';
 import type { ForecastRange } from './metrics';

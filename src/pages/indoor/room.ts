@@ -1,3 +1,8 @@
+/**
+ * The indoor lab's room model: what can be changed about one room, the steady-state simulation
+ * run on it, and the single changes that would lower indoor PM2.5 the most. Pure functions with
+ * no React.
+ */
 import { aqiCategory, computeAqi, type AqiCategory } from '@/lib/air/aqi';
 import type { AqiStandard } from '@/lib/air/types';
 import type { Household } from '@/lib/profile/schema';
@@ -62,6 +67,7 @@ export function roomFromHome(home: Household['home'], outdoor: number): Room {
     sources: new Set<SourceKey>([
       ...(home.incense ? (['incense'] as const) : []),
       ...(home.mosquitoCoil ? (['coil'] as const) : []),
+      ...(home.indoorSmoking ? (['cigarette'] as const) : []),
     ]),
   };
 }

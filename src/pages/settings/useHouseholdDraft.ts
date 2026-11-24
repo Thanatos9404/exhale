@@ -1,9 +1,11 @@
+/** The settings form's state: an editable draft of the household, its validation and saving. */
 import { useMemo, useState } from 'react';
-import { toast } from 'sonner';
+import { notify } from '@/components/shell/toasts';
 import { useAppState } from '@/state/AppState';
 import { householdSchema, type Household, type Member } from '@/lib/profile/schema';
 import {
   addMember,
+  newMemberId,
   patchMember,
   removeMember,
   validateHousehold,
@@ -55,12 +57,12 @@ export function useHouseholdDraft(): HouseholdForm {
   const save = () => {
     const result = householdSchema.safeParse(draft);
     if (!result.success) {
-      toast.error('Fix the highlighted fields first');
+      notify.error('Fix the highlighted fields first');
       return;
     }
     setEdit(null);
     setHousehold(result.data);
-    toast.success('Household saved. Your plan has been recalculated.');
+    notify.success('Household saved. Your plan has been recalculated.');
   };
 
   return {
@@ -73,8 +75,8 @@ export function useHouseholdDraft(): HouseholdForm {
     patchCommute: (p) => update((d) => ({ ...d, commute: { ...d.commute, ...p } })),
     patchMember: (id, p) => update((d) => patchMember(d, id, p)),
     addMember: () => {
-      const id = `p-${Date.now().toString(36)}`;
-      update((d) => addMember(d, id));
+      const now = Date.now();
+      update((d) => addMember(d, newMemberId(d, now)));
     },
     removeMember: (id) => update((d) => removeMember(d, id)),
   };

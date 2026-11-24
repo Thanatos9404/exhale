@@ -1,3 +1,7 @@
+/**
+ * SVG usage ring for one person's dose, where a full circle is their WHO budget. Past 100% the
+ * ring cannot fill further, so it turns red and shows the multiple instead.
+ */
 import { fmtDec } from '@/lib/format';
 
 const SIZE = 60;

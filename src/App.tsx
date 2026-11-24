@@ -1,8 +1,12 @@
+/**
+ * The app frame and its routes. Overview ships in the first load; every other page, the command
+ * dialog and the toaster arrive when they are first needed.
+ */
 import { lazy, Suspense, useEffect } from 'react';
 import { Route, Switch, useLocation } from 'wouter';
-import { Toaster } from 'sonner';
 import { Footer, Header, PageBody, PageHeader, Tabs } from '@/components/shell/Shell';
 import { CommandMenuProvider } from '@/components/shell/CommandMenu';
+import { ToastHost } from '@/components/shell/ToastHost';
 import { LoadingCard, EmptyState } from '@/components/states';
 import { buttonStyles } from '@/components/ui/Button';
 import { useAppState } from '@/state/AppState';
@@ -50,6 +54,14 @@ function NotFound() {
   );
 }
 
+/**
+ * Puts keyboard focus on the page content when the skip link is used. Browsers do this for a
+ * fragment link on their own; doing it here as well makes the move certain everywhere.
+ */
+function focusMain() {
+  document.getElementById('main')?.focus();
+}
+
 /** The app frame: header, tabs, the routed page, footer and toasts, inside the command menu. */
 export default function App() {
   useDocumentTitle();
@@ -58,6 +70,7 @@ export default function App() {
     <CommandMenuProvider>
       <a
         href="#main"
+        onClick={focusMain}
         className="sr-only z-[60] rounded-md bg-fg px-3 py-2 text-sm font-medium text-background focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
       >
         Skip to content
@@ -85,18 +98,7 @@ export default function App() {
         </Suspense>
       </main>
       <Footer />
-      <Toaster
-        theme={theme === 'system' ? 'system' : theme}
-        position="bottom-right"
-        toastOptions={{
-          className: 'font-sans',
-          style: {
-            background: 'var(--surface)',
-            color: 'var(--fg)',
-            border: '1px solid var(--line)',
-          },
-        }}
-      />
+      <ToastHost theme={theme} />
     </CommandMenuProvider>
   );
 }

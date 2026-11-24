@@ -1,3 +1,8 @@
+/**
+ * Vitest setup, run before every test file: adds the jest-dom matchers, clears the DOM and
+ * localStorage after each test, and stubs the browser APIs jsdom lacks. In the node environment
+ * it does nothing beyond registering the matchers.
+ */
 import '@testing-library/jest-dom/vitest';
 import { afterEach, vi } from 'vitest';
 
