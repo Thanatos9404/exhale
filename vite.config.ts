@@ -1,87 +1,58 @@
 /// <reference types="vitest/config" />
 import { fileURLToPath, URL } from 'node:url';
-import type { IncomingMessage, ServerResponse } from 'node:http';
-import { defineConfig, loadEnv, type Plugin, type ViteDevServer } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-
-/**
- * Local stand-in for Vercel Functions: routes `/api/<name>` to the `POST`/`GET`
- * export of `api/<name>.ts`, using the same Web `Request`/`Response` contract
- * that runs in production. Keeps `npm run dev` a single command.
- */
-function devApi(): Plugin {
-  return {
-    name: 'exhale-dev-api',
-    apply: 'serve',
-    configureServer(server: ViteDevServer) {
-      server.middlewares.use('/api', (req: IncomingMessage, res: ServerResponse, next) => {
-        void handle(server, req, res).catch((err: unknown) => {
-          // A client that navigates away mid-request is normal; do not raise the error overlay for it.
-          if (req.destroyed || (err instanceof Error && /abort/i.test(err.message))) {
-            if (!res.writableEnded) res.end();
-            return;
-          }
-          next(err);
-        });
-      });
-    },
-  };
-}
-
-async function handle(server: ViteDevServer, req: IncomingMessage, res: ServerResponse) {
-  const [path = ''] = (req.url ?? '/').split('?');
-  const name = path.replace(/^\/+/, '').replace(/[^a-z-]/g, '');
-  const mod = (await server.ssrLoadModule(`/api/${name}.ts`)) as Record<
-    string,
-    ((r: Request) => Promise<Response>) | undefined
-  >;
-  const method = (req.method ?? 'GET').toUpperCase();
-  const fn = mod[method];
-  if (!fn) {
-    res.statusCode = 405;
-    res.end();
-    return;
-  }
-  const chunks: Buffer[] = [];
-  for await (const chunk of req) chunks.push(chunk as Buffer);
-  const headers = new Headers();
-  for (const [k, v] of Object.entries(req.headers)) if (typeof v === 'string') headers.set(k, v);
-  const request = new Request(`http://localhost${req.url ?? ''}`, {
-    method,
-    headers,
-    body: method === 'GET' || method === 'HEAD' ? undefined : Buffer.concat(chunks),
-  });
-  const response = await fn(request);
-  res.statusCode = response.status;
-  response.headers.forEach((value, key) => res.setHeader(key, value));
-  if (!response.body) {
-    res.end();
-    return;
-  }
-  const reader = response.body.getReader();
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    res.write(value);
-  }
-  res.end();
-}
+import { devApi } from './scripts/devApiPlugin.ts';
 
 /** Server-only settings the dev API handlers read, mirroring the Vercel environment. */
 const SERVER_ENV_KEYS = ['GEMINI_API_KEY', 'GEMINI_API_KEYS', 'GEMINI_MODEL', 'ANTHROPIC_API_KEY'];
 
-export default defineConfig(({ mode }) => {
-  // Expose server-only secrets to the dev API handlers through process.env, never to the client
-  // bundle (only VITE_-prefixed variables reach the browser).
-  // Tests stay hermetic: they never pick up real keys from .env.local.
-  if (mode !== 'test') {
-    const env = loadEnv(mode, process.cwd(), '');
-    for (const key of SERVER_ENV_KEYS) {
-      if (env[key] && !process.env[key]) process.env[key] = env[key];
-    }
-  }
+/**
+ * Long-lived vendor chunks cache across deploys; heavy visuals load on demand. The first
+ * matching row wins, so the specific libraries come before the general React row.
+ */
+const VENDOR_CHUNKS: [name: string, packages: RegExp][] = [
+  ['three', /[\\/](three|@react-three|three-stdlib|camera-controls|maath)[\\/]/],
+  [
+    'markdown',
+    /[\\/](react-markdown|remark-[^\\/]+|micromark[^\\/]*|mdast-[^\\/]+|unified|hast-[^\\/]+|vfile[^\\/]*|unist-[^\\/]+)[\\/]/,
+  ],
+  ['gsap', /[\\/]gsap[\\/]|[\\/]@gsap[\\/]/],
+  ['motion', /[\\/](motion|framer-motion|motion-dom|motion-utils)[\\/]/],
+  ['react', /[\\/](react|react-dom|scheduler|wouter)[\\/]/],
+  ['data', /[\\/](@tanstack|zod)[\\/]/],
+  // The command menu and the toaster share one chunk that loads when the browser is idle.
+  ['ui', /[\\/](cmdk|@radix-ui|sonner)[\\/]/],
+];
 
+function vendorChunk(id: string): string | undefined {
+  if (!id.includes('node_modules')) return undefined;
+  return VENDOR_CHUNKS.find(([, packages]) => packages.test(id))?.[0];
+}
+
+/**
+ * Expose server-only secrets to the dev API handlers through process.env, never to the client
+ * bundle (only VITE_-prefixed variables reach the browser). Tests stay hermetic: they never pick
+ * up real keys from .env.local.
+ */
+function loadServerEnv(mode: string): void {
+  if (mode === 'test') return;
+  const env = loadEnv(mode, process.cwd(), '');
+  for (const key of SERVER_ENV_KEYS) {
+    if (env[key] && !process.env[key]) process.env[key] = env[key];
+  }
+}
+
+const TEST_FILES = [
+  'src/**/*.test.{ts,tsx}',
+  'server/**/*.test.ts',
+  'api/**/*.test.ts',
+  'tests/**/*.test.ts',
+];
+
+export default defineConfig(({ mode }) => {
+  loadServerEnv(mode);
   return {
     plugins: [react(), tailwindcss(), devApi()],
     // Coverage reports are regenerated by test runs; they are not app sources.
@@ -94,35 +65,13 @@ export default defineConfig(({ mode }) => {
       sourcemap: false,
       // three.js is ~250 kB gzipped but only loads after first paint, when a 3D view mounts.
       chunkSizeWarningLimit: 1000,
-      rollupOptions: {
-        output: {
-          // Long-lived vendor chunks cache across deploys; heavy visuals load on demand.
-          manualChunks(id: string) {
-            if (!id.includes('node_modules')) return undefined;
-            if (/[\\/](three|@react-three|three-stdlib|camera-controls|maath)[\\/]/.test(id))
-              return 'three';
-            if (
-              /[\\/](react-markdown|remark-[^\\/]+|micromark[^\\/]*|mdast-[^\\/]+|unified|hast-[^\\/]+|vfile[^\\/]*|unist-[^\\/]+)[\\/]/.test(
-                id,
-              )
-            )
-              return 'markdown';
-            if (/[\\/]gsap[\\/]|[\\/]@gsap[\\/]/.test(id)) return 'gsap';
-            if (/[\\/](motion|framer-motion|motion-dom|motion-utils)[\\/]/.test(id))
-              return 'motion';
-            if (/[\\/](react|react-dom|scheduler|wouter)[\\/]/.test(id)) return 'react';
-            if (/[\\/](@tanstack|zod)[\\/]/.test(id)) return 'data';
-            if (/[\\/](cmdk|@radix-ui|sonner)[\\/]/.test(id)) return 'ui';
-            return undefined;
-          },
-        },
-      },
+      rollupOptions: { output: { manualChunks: vendorChunk } },
     },
     test: {
       globals: true,
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],
-      include: ['src/**/*.test.{ts,tsx}', 'server/**/*.test.ts', 'api/**/*.test.ts'],
+      include: TEST_FILES,
       css: false,
       // Page tests render the full app; leave headroom for slow or busy CI machines.
       testTimeout: 20_000,

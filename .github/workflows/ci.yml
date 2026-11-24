@@ -17,19 +17,36 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - name: Dependency audit (fails on high or critical advisories)
+        run: npm run audit:deps
       - name: Format
         run: npm run format:check
       - name: Typecheck
         run: npm run typecheck
       - name: Lint (strict type-checked, zero warnings)
         run: npm run lint
-      - name: Test with coverage thresholds (unit, API, components, accessibility)
+      - name: Test with coverage thresholds (unit, property, API, architecture, accessibility)
         run: npm run test:coverage
       - name: Build
         run: npx vite build
+      - name: Bundle budget
+        run: npm run bundle:check
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: End-to-end journeys in Chrome, desktop and phone (network fully mocked)
+        run: npm run test:e2e

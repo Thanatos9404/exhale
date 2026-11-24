@@ -16,7 +16,8 @@
     "noEmit": true,
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    "allowImportingTsExtensions": true
   },
-  "include": ["vite.config.ts", "api", "server"]
+  "include": ["vite.config.ts", "scripts", "tests", "api", "server", "e2e", "playwright.config.ts"]
 }
