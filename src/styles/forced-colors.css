@@ -1,0 +1,94 @@
+/**
+ * Windows High Contrast (forced colours). The system repaints text, borders and backgrounds and
+ * drops box-shadows, so every state that was shown by a fill or a shadow is redrawn here with
+ * system colours: focus rings, control boundaries, the selected tab and radio, switches and
+ * status dots. These rules are unlayered on purpose, so they win over the Tailwind utilities.
+ */
+
+@media (forced-colors: active) {
+  /* Focus: a real outline everywhere, including controls that normally draw a shadow ring. */
+  :focus-visible:not(main) {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+  [role='tab']:focus-visible {
+    outline-offset: -2px;
+  }
+
+  /* Control boundaries. */
+  input,
+  select,
+  textarea,
+  [role='radiogroup'],
+  [role='switch'] {
+    border-color: ButtonBorder;
+  }
+
+  /* Selected segmented option: its shadow ring is gone, so fill it with the selection colour. */
+  [role='radio'][aria-checked='true'] {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
+
+  /* Selected tab: a thicker bar in the selection colour. */
+  .ui-tab-indicator {
+    forced-color-adjust: none;
+    height: 4px;
+    background: Highlight;
+  }
+
+  /* Switch: the thumb is a fill, so it needs a system colour to stay visible in both states. */
+  .ui-switch-thumb {
+    forced-color-adjust: none;
+    background: ButtonText;
+  }
+  [role='switch'][aria-checked='true'] {
+    forced-color-adjust: none;
+    border-color: Highlight;
+    background: Highlight;
+  }
+  [role='switch'][aria-checked='true'] .ui-switch-thumb {
+    background: HighlightText;
+  }
+
+  /* Status dots keep their meaning-bearing colour, with an edge that shows on any canvas. */
+  .ui-dot {
+    forced-color-adjust: none;
+    border: 1px solid CanvasText;
+  }
+
+  /* Native controls drawn in controls.css. */
+  input[type='checkbox'] {
+    forced-color-adjust: none;
+    border-color: ButtonBorder;
+    background: Canvas;
+  }
+  input[type='checkbox']:checked {
+    border-color: Highlight;
+    background: Highlight;
+  }
+  input[type='checkbox']::before {
+    background: HighlightText;
+  }
+  input[type='range'] {
+    forced-color-adjust: none;
+  }
+  input[type='range']::-webkit-slider-runnable-track {
+    background: CanvasText;
+  }
+  input[type='range']::-moz-range-track {
+    background: CanvasText;
+  }
+  input[type='range']::-moz-range-progress {
+    background: Highlight;
+  }
+  input[type='range']::-webkit-slider-thumb {
+    border-color: Canvas;
+    background: Highlight;
+  }
+  input[type='range']::-moz-range-thumb {
+    border-color: Canvas;
+    background: Highlight;
+  }
+}

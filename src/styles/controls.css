@@ -1,0 +1,90 @@
+/**
+ * Native checkboxes and range sliders, drawn from the design tokens so their boundaries reach
+ * 3:1 (WCAG 1.4.11) in both themes instead of depending on each browser's default greys, and
+ * their targets are at least 24 CSS pixels tall (WCAG 2.5.8).
+ */
+
+@layer base {
+  input[type='checkbox'] {
+    appearance: none;
+    display: inline-grid;
+    flex: none;
+    place-content: center;
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+    border: 1.5px solid var(--field-border);
+    border-radius: 4px;
+    background: var(--surface);
+    transition:
+      background-color 120ms ease,
+      border-color 120ms ease;
+  }
+  input[type='checkbox']:hover {
+    border-color: var(--fg);
+  }
+  /* The tick: a clipped square in the page colour, shown only when the box is checked. */
+  input[type='checkbox']::before {
+    content: '';
+    width: 0.625rem;
+    height: 0.625rem;
+    background: var(--background);
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+    transform: scale(0);
+  }
+  input[type='checkbox']:checked {
+    border-color: var(--fg);
+    background: var(--fg);
+  }
+  input[type='checkbox']:checked::before {
+    transform: scale(1);
+  }
+  input[type='checkbox']:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  /* A checkbox is clicked through its label, so the label carries the 24px target. */
+  label:has(> input[type='checkbox']) {
+    min-height: 1.5rem;
+  }
+
+  input[type='range'] {
+    appearance: none;
+    height: 1.5rem;
+    background: transparent;
+    cursor: pointer;
+  }
+  input[type='range']::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--field-border);
+  }
+  input[type='range']::-moz-range-track {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--field-border);
+  }
+  input[type='range']::-moz-range-progress {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--fg);
+  }
+  input[type='range']::-webkit-slider-thumb {
+    appearance: none;
+    box-sizing: border-box;
+    width: 16px;
+    height: 16px;
+    margin-top: -6px;
+    border: 2px solid var(--surface);
+    border-radius: 50%;
+    background: var(--fg);
+  }
+  input[type='range']::-moz-range-thumb {
+    box-sizing: border-box;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--surface);
+    border-radius: 50%;
+    background: var(--fg);
+  }
+}

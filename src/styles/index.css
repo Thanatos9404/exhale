@@ -1,10 +1,15 @@
-@import 'tailwindcss';
-
-/*
- * Exhale design tokens. The visual language follows a developer-dashboard system:
- * neutral greys, hairline borders, one blue accent for focus and links, and colour reserved
- * for data (AQI levels, status). Light and dark are both designed, not inverted.
+/**
+ * Exhale design tokens and base rules: the one place colour is defined, for both themes.
+ * The visual language follows a developer-dashboard system: neutral greys, hairline borders,
+ * one blue accent for focus and links, and colour reserved for data (AQI levels, status).
+ * Light and dark are both designed, not inverted. tests/contrast.test.ts reads this file and
+ * proves every pairing below by calculation: text 4.5:1 (WCAG 1.4.3), boundaries and fills 3:1
+ * (WCAG 1.4.11).
  */
+@import 'tailwindcss';
+@import './utilities.css';
+@import './controls.css';
+@import './forced-colors.css';
 
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
@@ -18,31 +23,43 @@
   --active: #ebebeb;
   --line: #eaeaea;
   --line-strong: #d4d4d4;
+  /* Boundary of inputs, selects, checkboxes, switches, segmented controls and sliders: 3:1. */
+  --field-border: #868686;
   --fg: #171717;
   --muted: #5e5e5e;
-  --subtle: #737373;
-  --blue: #0068d6;
+  --subtle: #6a6a6a;
+  --blue: #0066d4;
   --blue-soft: #eaf3ff;
-  --green: #1a7f37;
+  --green: #127a33;
   --green-soft: #e9f7ee;
   --amber: #a35200;
   --amber-soft: #fff4e5;
   --red: #c4162a;
   --red-soft: #ffebee;
   --focus: #0068d6;
+  /* Solid fills that carry white text or a white switch thumb. */
+  --blue-solid: var(--blue);
+  --red-solid: var(--red);
   --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 2px 8px rgb(0 0 0 / 0.04);
   --shadow-pop:
     0 1px 1px rgb(0 0 0 / 0.02), 0 8px 16px -4px rgb(0 0 0 / 0.08),
     0 24px 32px -8px rgb(0 0 0 / 0.1);
   --diff-add: #e6ffec;
   --diff-del: #ffebe9;
-  /* AQI ramp, light surfaces */
+  /* AQI ramp for fills, dots and chart areas: 3:1 against every surface. */
   --aqi-0: #1a9850;
-  --aqi-1: #b08800;
-  --aqi-2: #d9690b;
+  --aqi-1: #a88100;
+  --aqi-2: #d76706;
   --aqi-3: #d7263d;
   --aqi-4: #9c2b7b;
   --aqi-5: #7a1c2e;
+  /* The same hues for text: 4.5:1 against every surface. */
+  --aqi-0-text: #017a3c;
+  --aqi-1-text: #846500;
+  --aqi-2-text: #ab5000;
+  --aqi-3-text: #d01b37;
+  --aqi-4-text: var(--aqi-4);
+  --aqi-5-text: var(--aqi-5);
 }
 
 [data-theme='dark'] {
@@ -54,6 +71,7 @@
   --active: #1f1f1f;
   --line: #242424;
   --line-strong: #333333;
+  --field-border: #6a6a6a;
   --fg: #ededed;
   --muted: #a1a1a1;
   --subtle: #8f8f8f;
@@ -66,6 +84,8 @@
   --red: #ff6166;
   --red-soft: #2c0e10;
   --focus: #52a8ff;
+  --blue-solid: #1a78cb;
+  --red-solid: #d73b46;
   --shadow: 0 0 0 1px rgb(255 255 255 / 0.02);
   --shadow-pop: 0 0 0 1px #2e2e2e, 0 16px 32px -8px rgb(0 0 0 / 0.6);
   --diff-add: #0f2a17;
@@ -76,6 +96,12 @@
   --aqi-3: #f2545b;
   --aqi-4: #d465b0;
   --aqi-5: #c2384f;
+  --aqi-0-text: var(--aqi-0);
+  --aqi-1-text: var(--aqi-1);
+  --aqi-2-text: var(--aqi-2);
+  --aqi-3-text: var(--aqi-3);
+  --aqi-4-text: var(--aqi-4);
+  --aqi-5-text: #e25669;
 }
 
 @theme inline {
@@ -88,6 +114,7 @@
   --color-active: var(--active);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
+  --color-field-border: var(--field-border);
   --color-fg: var(--fg);
   --color-muted: var(--muted);
   --color-subtle: var(--subtle);
@@ -99,12 +126,21 @@
   --color-amber-soft: var(--amber-soft);
   --color-red: var(--red);
   --color-red-soft: var(--red-soft);
+  --color-blue-solid: var(--blue-solid);
+  --color-red-solid: var(--red-solid);
+  --color-focus: var(--focus);
   --color-aqi-0: var(--aqi-0);
   --color-aqi-1: var(--aqi-1);
   --color-aqi-2: var(--aqi-2);
   --color-aqi-3: var(--aqi-3);
   --color-aqi-4: var(--aqi-4);
   --color-aqi-5: var(--aqi-5);
+  --color-aqi-0-text: var(--aqi-0-text);
+  --color-aqi-1-text: var(--aqi-1-text);
+  --color-aqi-2-text: var(--aqi-2-text);
+  --color-aqi-3-text: var(--aqi-3-text);
+  --color-aqi-4-text: var(--aqi-4-text);
+  --color-aqi-5-text: var(--aqi-5-text);
   --shadow-card: var(--shadow);
   --shadow-pop: var(--shadow-pop);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -148,110 +184,5 @@
   [role='button'],
   a {
     -webkit-tap-highlight-color: transparent;
-  }
-  input[type='range'] {
-    accent-color: var(--fg);
-  }
-}
-
-@layer utilities {
-  .tabular {
-    font-variant-numeric: tabular-nums;
-  }
-  .hairline {
-    border: 1px solid var(--line);
-  }
-  .scrollbar-none {
-    scrollbar-width: none;
-  }
-  .scrollbar-none::-webkit-scrollbar {
-    display: none;
-  }
-  .press {
-    transition: transform 120ms var(--ease-out);
-  }
-  .press:active {
-    transform: scale(0.97);
-  }
-  .bg-grid {
-    background-image:
-      linear-gradient(
-        to right,
-        color-mix(in oklab, var(--fg) 6%, transparent) 1px,
-        transparent 1px
-      ),
-      linear-gradient(
-        to bottom,
-        color-mix(in oklab, var(--fg) 6%, transparent) 1px,
-        transparent 1px
-      );
-    background-size: 24px 24px;
-  }
-}
-
-@keyframes exhale-spin {
-  0% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0.15;
-  }
-}
-
-@keyframes exhale-caret {
-  50% {
-    opacity: 0;
-  }
-}
-
-/* Markdown answers from the assistant */
-.prose-exhale {
-  font-size: 14px;
-  line-height: 1.65;
-}
-.prose-exhale p {
-  margin: 0 0 0.75em;
-}
-.prose-exhale ul,
-.prose-exhale ol {
-  margin: 0 0 0.75em;
-  padding-left: 1.2em;
-}
-.prose-exhale ul {
-  list-style: disc;
-}
-.prose-exhale ol {
-  list-style: decimal;
-}
-.prose-exhale li {
-  margin: 0.25em 0;
-}
-.prose-exhale strong {
-  font-weight: 600;
-}
-.prose-exhale a {
-  color: var(--blue);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.prose-exhale code {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  padding: 1px 4px;
-  border-radius: 4px;
-  background: var(--hover);
-}
-.prose-exhale > :last-child {
-  margin-bottom: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 1ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 1ms !important;
-    scroll-behavior: auto !important;
   }
 }

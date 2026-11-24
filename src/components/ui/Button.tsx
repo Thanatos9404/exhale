@@ -1,3 +1,7 @@
+/**
+ * The app's button and the matching look for links. Every size is at least 32 CSS pixels in
+ * both directions, so an icon-only button still meets the target-size minimum (WCAG 2.5.8).
+ */
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { cn } from '@/lib/cn';
 import { Spinner } from './Spinner';
@@ -17,13 +21,13 @@ const VARIANT: Record<Variant, string> = {
   primary: 'bg-fg text-background hover:opacity-90 border border-transparent',
   secondary: 'bg-surface text-fg border border-line-strong hover:bg-hover',
   tertiary: 'bg-transparent text-fg border border-transparent hover:bg-hover',
-  error: 'bg-red text-white border border-transparent hover:opacity-90',
+  error: 'bg-red-solid text-white border border-transparent hover:opacity-90',
 };
 
 const SIZE: Record<Size, string> = {
-  sm: 'h-8 px-2.5 text-[13px] gap-1.5 rounded-md',
-  md: 'h-9 px-3 text-sm gap-2 rounded-md',
-  lg: 'h-11 px-4 text-[15px] gap-2 rounded-lg',
+  sm: 'h-8 min-w-8 px-2.5 text-[13px] gap-1.5 rounded-md',
+  md: 'h-9 min-w-9 px-3 text-sm gap-2 rounded-md',
+  lg: 'h-11 min-w-11 px-4 text-[15px] gap-2 rounded-lg',
 };
 
 /** Button look for links (navigation stays an <a>, never a button inside a link). */
@@ -41,6 +45,7 @@ export function buttonStyles(
   );
 }
 
+/** The app's button: four variants, three sizes, and a busy state that blocks clicks. */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   {
     variant = 'secondary',
