@@ -33,7 +33,7 @@ The family sees: "Smog lid 00:00 to 10:00: air can only mix 30 m high. Cleanest 
 | PM2.5 inhaled by the household | 3,545 µg                                          | 2,334 µg: 34% less, or 7.8 cigarette-equivalents avoided                  |
 | Emissions                      | As usual                                          | 19.5 kg of CO2e saved per week                                            |
 
-The planner never keeps a change that would make anyone worse off. A property test checks this over thousands of generated households and forecasts ([src/lib/planner/guard.ts](src/lib/planner/guard.ts), [src/lib/planner/engine.property.test.ts](src/lib/planner/engine.property.test.ts)).
+The planner never keeps a change that would make anyone worse off. A property test checks this over 200 randomly generated households and forecasts on every run ([src/lib/planner/guard.ts](src/lib/planner/guard.ts), [src/lib/planner/engine.property.test.ts](src/lib/planner/engine.property.test.ts)).
 
 ## Requirement traceability
 

@@ -233,6 +233,8 @@ docs/ARCHITECTURE.md  Layers, data flow, planner pipeline, AI fallback chain
 
 Air quality and weather data: [Open-Meteo](https://open-meteo.com) (CAMS, ECMWF and national weather models, CC BY 4.0). Reverse geocoding: BigDataCloud client API. Fonts: Geist and Geist Mono (SIL OFL). Icons: Lucide (ISC).
 
+**AI tools.** At runtime: the Gemini API (plan explanations and the assistant) and Claude Haiku (fallback only). In development: the code, tests and docs were written with Claude Code (Anthropic) as an AI coding assistant, and every commit is marked as co-authored with it.
+
 ## License
 
 MIT
