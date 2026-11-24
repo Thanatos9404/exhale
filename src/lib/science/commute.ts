@@ -1,16 +1,15 @@
-import {
-  BREATHING_RATE,
-  cigarettesFromConcHours,
-  type Activity,
-  type AgeGroup,
-} from './exposure.js';
-
 /**
  * Commute modes with per-passenger emission and in-transit exposure factors.
  * CO2e values are India-oriented per passenger-km approximations; exposure factors are the
  * ratio of in-vehicle to ambient PM2.5 reported across urban commuter studies. Both are
  * listed as assumptions in the README.
  */
+import {
+  BREATHING_RATE,
+  cigarettesFromConcHours,
+  type Activity,
+  type AgeGroup,
+} from './exposure.js';
 
 /** How the commuter travels; 'wfh' means no commute. */
 export type CommuteMode =
@@ -180,6 +179,15 @@ export function tripExposure(input: TripInput): TripResult {
   };
 }
 
+/**
+ * CO2 of an option relative to the current mode. When the current mode emits nothing, an
+ * option that emits anything counts as twice as bad and one that emits nothing as equal.
+ */
+function relativeCo2(co2Kg: number, baseCo2Kg: number): number {
+  if (baseCo2Kg > 0) return co2Kg / baseCo2Kg;
+  return co2Kg > 0 ? 2 : 1;
+}
+
 /** A ranked alternative. */
 export interface CommuteOption extends TripResult {
   /** Weighted dose, CO2 and time relative to the current mode; lower is better. */
@@ -199,7 +207,7 @@ export function rankModes(current: TripInput): CommuteOption[] {
     const r = tripExposure({ ...current, mode, n95: current.n95 || MODES[mode].open });
     if (r.minutes > maxMinutes && mode !== current.mode) continue;
     const doseRel = base.doseUg > 0 ? r.doseUg / base.doseUg : 1;
-    const co2Rel = base.co2Kg > 0 ? r.co2Kg / base.co2Kg : r.co2Kg > 0 ? 2 : 1;
+    const co2Rel = relativeCo2(r.co2Kg, base.co2Kg);
     const timeRel = base.minutes > 0 ? r.minutes / base.minutes : 1;
     options.push({ ...r, score: doseRel * 0.5 + co2Rel * 0.35 + timeRel * 0.15 });
   }

@@ -104,13 +104,38 @@ describe('getAir', () => {
     expect(second.place.label).toBe('Home');
   });
 
-  it('does not cache failures', async () => {
+  it('remembers a failure for 30 seconds, so the next requests fail at once without a fetch', async () => {
     const failing = vi.fn<FetchStub>(() => Promise.resolve(json({}, 503)));
     await expect(getAir(delhi, asFetch(failing), T0)).rejects.toThrow(AirDataError);
     const fetchMock = healthyProvider();
-    const snap = await getAir(delhi, asFetch(fetchMock), T0 + 1);
+    await expect(getAir(delhi, asFetch(fetchMock), T0 + 1)).rejects.toThrow(AirDataError);
+    await expect(getAir(delhi, asFetch(fetchMock), T0 + 29_000)).rejects.toThrow(AirDataError);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('never serves a cached failure after 30 seconds: the provider is asked again', async () => {
+    const failing = vi.fn<FetchStub>(() => Promise.resolve(json({}, 503)));
+    await expect(getAir(delhi, asFetch(failing), T0)).rejects.toThrow(AirDataError);
+    const fetchMock = healthyProvider();
+    // One second of slack covers the real time the failed fetch took.
+    const snap = await getAir(delhi, asFetch(fetchMock), T0 + 31_000);
     expect(airCalls(fetchMock)).toBe(1);
     expect(snap.place.label).toBe('New Delhi, India');
+    // The fresh reading replaced the failure and is cached like any other.
+    await getAir(delhi, asFetch(fetchMock), T0 + 32_000);
+    expect(airCalls(fetchMock)).toBe(1);
+  });
+
+  it('remembers a failure for its own cell only', async () => {
+    const failing = vi.fn<FetchStub>(() => Promise.resolve(json({}, 503)));
+    await expect(getAir(delhi, asFetch(failing), T0)).rejects.toThrow(AirDataError);
+    const fetchMock = healthyProvider();
+    const mumbai = await getAir(
+      { lat: 19.076, lon: 72.8777, label: 'Mumbai' },
+      asFetch(fetchMock),
+      T0,
+    );
+    expect(mumbai.place.label).toBe('Mumbai');
   });
 
   it('evicts the oldest cell once 500 cells are cached', () => {

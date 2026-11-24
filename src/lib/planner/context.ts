@@ -1,3 +1,8 @@
+/**
+ * The shared context of one plan (household, forecast, baseline day, the meteorology the advice
+ * is anchored to) and the three shapes a builder's proposal can take: free action, paid upgrade
+ * or plain advice. Built once per plan.
+ */
 import type { AirSnapshot, HourPoint } from '../air/types.js';
 import {
   cleanestWindow,
@@ -9,12 +14,12 @@ import type { Household } from '../profile/schema.js';
 import { impactBetween, noImpact } from './impact.js';
 import { baselineScenario, cloneScenario, type Scenario, type ScenarioChange } from './scenario.js';
 import { Simulator, type HouseholdExposure } from './simulator.js';
-import type { Impact, RoutineItem } from './types.js';
+import type { RoutineItem } from './types.js';
 
-/**
- * What every recommendation builder needs: the household, the forecast, the baseline day and
- * the meteorology the advice is anchored to. Built once per plan.
- */
+/** Local hours of day, inclusive, between which the house may be aired. */
+export const AIRING_WINDOW = { dayStart: 9, dayEnd: 17 };
+
+/** What every recommendation builder needs. */
 export interface PlanContext {
   readonly household: Household;
   readonly hourly: readonly HourPoint[];
@@ -30,15 +35,28 @@ export interface PlanContext {
   readonly cleanDaylight: PmWindow | null;
   /** Runs of smog-lid hours in the horizon. */
   readonly lids: LidSpan[];
-  /** Simulates `change` on its own against the baseline and reports what it saves `memberIds`. */
-  impactOf(change: ScenarioChange, memberIds: readonly string[], co2SavedKg?: number): Impact;
+  /** Every member's day with `change` alone applied to the baseline, unrounded. */
+  simulate(change: ScenarioChange): HouseholdExposure;
 }
 
-/** A recommendation plus, for free actions, the change it makes to the optimised day. */
+/**
+ * What a proposed change does on its own, before any rounding. The do-no-harm rule in `guard`
+ * judges these numbers, so an impact that is displayed as 0 is never a hidden negative.
+ */
+export interface Trial {
+  /** Every member's day with only this change applied to the baseline. */
+  exposure: HouseholdExposure;
+  /** kg CO2e saved per day; negative when the change emits more. */
+  co2SavedKg: number;
+}
+
+/** A recommendation plus what the planner needs to vet it and to apply it. */
 export interface ActionProposal {
   item: RoutineItem;
   /** Applied to the optimised day when the item is a selected free action. */
   apply?: ScenarioChange;
+  /** The simulation behind `item.impact`. Absent for advice, which changes nothing. */
+  trial?: Trial;
 }
 
 /** Proposes zero, one or several recommendations (one per member, for exercise). */
@@ -61,15 +79,23 @@ export function createPlanContext(household: Household, air: AirSnapshot): PlanC
     baseline,
     baseExposure,
     everyone: household.members.map((m) => m.id),
-    clean: cleanestWindow(hourly, from, to, 1, 9, 17),
-    cleanDaylight: cleanestWindow(hourly, from, to, 1, 7, 18),
+    clean: cleanestWindow(hourly, from, to, AIRING_WINDOW),
+    cleanDaylight: cleanestWindow(hourly, from, to, { dayStart: 7, dayEnd: 18 }),
     lids: lidSpans(hourly, from, to),
-    impactOf(change, memberIds, co2SavedKg = 0) {
+    simulate(change) {
       const trial = cloneScenario(baseline);
       change(trial);
-      return impactBetween(baseExposure, sim.household(trial), memberIds, co2SavedKg);
+      return sim.household(trial);
     },
   };
+}
+
+/** Who a free action covers and what it saves beyond the simulated dose. */
+export interface FreeActionScope {
+  /** Members the action and its impact apply to. Default: the whole household. */
+  memberIds?: string[];
+  /** kg CO2e saved per day. Default 0. */
+  co2SavedKg?: number;
 }
 
 /** A free action: its impact is simulated from `apply`, which also feeds the optimised day. */
@@ -77,11 +103,13 @@ export function freeAction(
   ctx: PlanContext,
   draft: ItemDraft,
   apply: ScenarioChange,
-  memberIds: string[] = ctx.everyone,
-  co2SavedKg = 0,
+  scope: FreeActionScope = {},
 ): ActionProposal {
-  const impact = ctx.impactOf(apply, memberIds, co2SavedKg);
-  return { item: { ...draft, memberIds, impact, freeAction: true }, apply };
+  const { memberIds = ctx.everyone, co2SavedKg = 0 } = scope;
+  const exposure = ctx.simulate(apply);
+  const impact = impactBetween(ctx.baseExposure, exposure, memberIds, co2SavedKg);
+  const item = { ...draft, memberIds, impact, freeAction: true };
+  return { item, apply, trial: { exposure, co2SavedKg } };
 }
 
 /** A paid upgrade: reported with its simulated impact but never applied to the free-actions day. */
@@ -90,8 +118,10 @@ export function upgrade(
   draft: ItemDraft,
   change: ScenarioChange,
 ): ActionProposal {
-  const impact = ctx.impactOf(change, ctx.everyone);
-  return { item: { ...draft, memberIds: ctx.everyone, impact, freeAction: false } };
+  const exposure = ctx.simulate(change);
+  const impact = impactBetween(ctx.baseExposure, exposure, ctx.everyone);
+  const item = { ...draft, memberIds: ctx.everyone, impact, freeAction: false };
+  return { item, trial: { exposure, co2SavedKg: 0 } };
 }
 
 /** Free advice with nothing to simulate, such as keeping a habit that is already fine. */

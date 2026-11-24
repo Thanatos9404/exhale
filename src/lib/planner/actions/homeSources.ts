@@ -1,9 +1,8 @@
+/** Indoor smoke the household makes itself: coils, incense, cigarettes and cooking. */
 import { EXHAUST_CAPTURE, SOURCE_RATE, sourceIncrement } from '../../science/indoor.js';
 import { freeAction, type ActionProposal, type PlanContext } from '../context.js';
 import { fmtPm } from '../format.js';
 import type { ScenarioChange } from '../scenario.js';
-
-/** Indoor smoke the household makes itself: coils, incense, cigarettes and cooking. */
 
 /** Share of cooking smoke kept out of the house by lids and a cracked kitchen window. */
 const CONTAINMENT_CAPTURE = 0.3;

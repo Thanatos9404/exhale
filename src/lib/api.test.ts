@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, getHealth, requestPlan, streamChat } from './api';
+import { buildPlan } from './planner/engine';
 import { DEFAULT_HOUSEHOLD } from './profile/schema';
-import type { ChatMessage, HealthResponse } from './apiTypes';
+import type { ChatMessage, HealthResponse, PlanResponse } from './apiTypes';
+import { makeSnapshot } from '@/test/fixtures';
 
 type FetchStub = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -36,7 +38,13 @@ afterEach(() => {
 });
 
 describe('requestPlan', () => {
-  const planResponse = { plan: { headline: 'Air out at 14:00' }, ai: null, source: 'rules' };
+  // The client validates what the server sends, so the fixture is a real engine plan.
+  const planResponse: PlanResponse = {
+    plan: buildPlan(DEFAULT_HOUSEHOLD, makeSnapshot(), new Date('2026-11-23T00:00:00Z')),
+    ai: null,
+    source: 'rules',
+    model: null,
+  };
 
   it('posts the place and household as JSON and returns the plan', async () => {
     const fetchMock = stubFetch(() => Promise.resolve(json(planResponse)));
@@ -59,6 +67,12 @@ describe('requestPlan', () => {
       DEFAULT_HOUSEHOLD,
     );
     expect(sentBody(fetchMock).place.label).toBe('Café bSaket/b 1, Delhi (South) & co/op');
+  });
+
+  it('keeps a place label written in a script that uses combining marks', async () => {
+    const fetchMock = stubFetch(() => Promise.resolve(json(planResponse)));
+    await requestPlan({ ...place, label: 'नई दिल्ली, भारत <b>' }, DEFAULT_HOUSEHOLD);
+    expect(sentBody(fetchMock).place.label).toBe('नई दिल्ली, भारत b');
   });
 
   it('caps the label at 80 characters and replaces an empty one', async () => {
@@ -93,6 +107,66 @@ describe('requestPlan', () => {
     });
   });
 
+  it('returns the AI wording alongside the plan when a provider wrote it', async () => {
+    const tip = { title: 'Wet-mop the floors', detail: 'Dust resuspends.', impact: 'Less dust' };
+    const withAi: PlanResponse = {
+      ...planResponse,
+      ai: {
+        headline: 'Air out at 13:00',
+        summary: 'A smog lid sits over the city until noon.',
+        items: [{ id: 'ventilate', why: 'The afternoon is far cleaner.' }],
+        indoorHacks: [tip],
+        sustainableSwaps: [tip],
+      },
+      source: 'gemini',
+      model: 'gemini-flash-latest',
+    };
+    stubFetch(() => Promise.resolve(json(withAi)));
+    await expect(requestPlan(place, DEFAULT_HOUSEHOLD)).resolves.toEqual(withAi);
+  });
+
+  it.each([
+    ['a plan with fields missing', { plan: { headline: 'Air out at 14:00' }, ai: null }],
+    ['an unknown source', { ...planResponse, source: 'oracle' }],
+    [
+      'a dose that is not a number',
+      { ...planResponse, plan: { ...planResponse.plan, totals: {} } },
+    ],
+    ['a JSON null', null],
+    ['an array', []],
+  ])('rejects %s in a successful response as an ApiError', async (_name, body) => {
+    stubFetch(() => Promise.resolve(json(body)));
+    const err = await requestPlan(place, DEFAULT_HOUSEHOLD).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err).toMatchObject({ message: 'Unexpected response from the server', status: 200 });
+  });
+
+  it('rejects a successful response that is not JSON as an ApiError', async () => {
+    stubFetch(() => Promise.resolve(new Response('<html>Gateway page</html>', { status: 200 })));
+    await expect(requestPlan(place, DEFAULT_HOUSEHOLD)).rejects.toMatchObject({
+      name: 'ApiError',
+      message: 'Unexpected response from the server',
+      status: 200,
+    });
+    stubFetch(() => Promise.resolve(new Response('', { status: 200 })));
+    await expect(requestPlan(place, DEFAULT_HOUSEHOLD)).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it('ignores an error field that is not a non-empty string', async () => {
+    stubFetch(() => Promise.resolve(json({ error: { code: 7 } }, 500)));
+    await expect(requestPlan(place, DEFAULT_HOUSEHOLD)).rejects.toMatchObject({
+      message: 'Request failed (500)',
+    });
+    stubFetch(() => Promise.resolve(json({ error: '' }, 400)));
+    await expect(requestPlan(place, DEFAULT_HOUSEHOLD)).rejects.toMatchObject({
+      message: 'Request failed (400)',
+    });
+    stubFetch(() => Promise.resolve(json(null, 500)));
+    await expect(requestPlan(place, DEFAULT_HOUSEHOLD)).rejects.toMatchObject({
+      message: 'Request failed (500)',
+    });
+  });
+
   it('rejects with the abort error when the caller aborts', async () => {
     const controller = new AbortController();
     stubFetch(
@@ -121,6 +195,24 @@ describe('getHealth', () => {
     const signal = new AbortController().signal;
     await expect(getHealth(signal)).resolves.toEqual(health);
     expect(fetchMock).toHaveBeenCalledWith('/api/health', { signal });
+  });
+
+  it('accepts a status without the optional provider list and drops unknown fields', async () => {
+    stubFetch(() => Promise.resolve(json({ ok: true, ai: false, model: null, geminiKeys: 0 })));
+    await expect(getHealth()).resolves.toEqual({ ok: true, ai: false, model: null });
+  });
+
+  it.each([
+    ['a missing flag', { ok: true, model: null }],
+    ['providers that are not strings', { ok: true, ai: true, model: null, providers: [1, 2] }],
+    ['a bare string', 'ok'],
+  ])('rejects %s as an ApiError', async (_name, body) => {
+    stubFetch(() => Promise.resolve(json(body)));
+    await expect(getHealth()).rejects.toMatchObject({
+      name: 'ApiError',
+      message: 'Unexpected response from the server',
+      status: 200,
+    });
   });
 
   it('throws an ApiError when the server is down', async () => {

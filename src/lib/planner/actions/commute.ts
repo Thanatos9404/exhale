@@ -1,8 +1,13 @@
+/**
+ * Commute advice: a mode that is no worse on dose and CO2e than today's, an N95, or a cleaner
+ * departure time.
+ */
 import {
   MODES,
   MODE_LABEL,
   rankModes,
   tripExposure,
+  type CommuteOption,
   type TripInput,
   type TripResult,
   type TravelMode,
@@ -11,9 +16,8 @@ import { fmtHour } from '../../science/meteo.js';
 import type { Member } from '../../profile/schema.js';
 import { freeAction, type ActionProposal, type PlanContext } from '../context.js';
 import { fmtPm, round } from '../format.js';
+import { firstSafe } from '../guard.js';
 import { nextIndexOfHour, type ScenarioChange } from '../scenario.js';
-
-/** Commute advice: a cleaner or lower-carbon mode, an N95, or a cleaner departure time. */
 
 /** Departure shifts the planner will consider, in hours. */
 const DEPARTURE_SHIFTS = [-2, -1, 1, 2];
@@ -76,9 +80,8 @@ function switchMode(
       detail: `For ${commute.distanceKm} km each way: ${base.minutes} to ${best.minutes} min, ${baseCo2} to ${bestCo2} kg CO2e a day. In-transit air goes from ${fmtPm(base.breathedPm25)} to ${fmtPm(best.breathedPm25)}.`,
     },
     apply,
-    [trip.commuter.id],
     // Two trips a day.
-    (base.co2Kg - best.co2Kg) * 2,
+    { memberIds: [trip.commuter.id], co2SavedKg: (base.co2Kg - best.co2Kg) * 2 },
   );
 }
 
@@ -100,11 +103,22 @@ function wearN95(ctx: PlanContext, trip: ActiveCommute): ActionProposal {
       detail: `The ${label.toLowerCase()} is already the best option for this trip, but it is open to street air. A sealed N95 removes roughly 70% of the particles.`,
     },
     apply,
-    [trip.commuter.id],
+    { memberIds: [trip.commuter.id] },
   );
 }
 
-/** Switch to the best-ranked mode, or keep an open mode and add an N95. */
+/** The modes ranked above the current one, best first; every mode if the current is unranked. */
+function betterModes(current: TripInput): CommuteOption[] {
+  const ranked = rankModes(current);
+  const at = ranked.findIndex((option) => option.mode === current.mode);
+  return at < 0 ? ranked : ranked.slice(0, at);
+}
+
+/**
+ * Switch to the best-ranked mode that is no worse than the current one on both the commuter's
+ * simulated dose and CO2e. If no mode qualifies the current one is kept, with an N95 when it is
+ * open to street air and the commuter has none.
+ */
 export function commuteModeAction(ctx: PlanContext): ActionProposal | null {
   const trip = activeCommute(ctx);
   if (!trip) return null;
@@ -116,41 +130,34 @@ export function commuteModeAction(ctx: PlanContext): ActionProposal | null {
     ageGroup: trip.commuter.ageGroup,
     n95: commute.hasN95,
   };
-  const [best] = rankModes(current);
-  if (best && best.mode !== trip.mode) return switchMode(ctx, trip, tripExposure(current), best);
+  const base = tripExposure(current);
+  // The ranking blends dose, CO2e and time, so its winner can still trade one for another.
+  const swap = firstSafe(ctx, betterModes(current), (best) => switchMode(ctx, trip, base, best));
+  if (swap) return swap;
   if (MODES[trip.mode].open && !commute.hasN95) return wearN95(ctx, trip);
   return null;
 }
 
-/** The cleanest nearby departure, if one is clearly better than the usual hour. */
-function cleanerDeparture(
-  ctx: PlanContext,
-  departIdx: number,
-  usualPm: number,
-): { shift: number; pm25: number } | null {
-  const { sim } = ctx;
-  let best: { shift: number; pm25: number } | null = null;
-  let bestPm = usualPm;
-  for (const shift of DEPARTURE_SHIFTS) {
-    const idx = departIdx + shift;
-    if (idx < sim.from || idx >= sim.to) continue;
-    const pm = sim.ambient(idx);
-    if (pm < bestPm * DEPARTURE_GAIN) {
-      bestPm = pm;
-      best = { shift, pm25: pm };
-    }
-  }
-  return best;
+/** A departure moved by `shift` hours and the street PM2.5 at that hour, µg/m³. */
+interface Departure {
+  shift: number;
+  pm25: number;
 }
 
-/** For flexible hours, leave up to two hours earlier or later when the street is cleaner. */
-export function commuteTimeAction(ctx: PlanContext): ActionProposal | null {
-  const trip = activeCommute(ctx);
-  const { commute } = ctx.household;
-  if (!trip || !commute.flexible || trip.departIdx === null) return null;
-  const better = cleanerDeparture(ctx, trip.departIdx, trip.ambient);
-  if (!better) return null;
+/** Nearby departures clearly cleaner on the street than the usual hour, cleanest first. */
+function cleanerDepartures(ctx: PlanContext, departIdx: number, usualPm: number): Departure[] {
+  const { sim } = ctx;
+  return DEPARTURE_SHIFTS.filter((shift) => {
+    const idx = departIdx + shift;
+    return idx >= sim.from && idx < sim.to;
+  })
+    .map((shift) => ({ shift, pm25: sim.ambient(departIdx + shift) }))
+    .filter((departure) => departure.pm25 < usualPm * DEPARTURE_GAIN)
+    .sort((a, b) => a.pm25 - b.pm25);
+}
 
+function leaveAt(ctx: PlanContext, trip: ActiveCommute, better: Departure): ActionProposal {
+  const { commute } = ctx.household;
   const apply: ScenarioChange = (s) => {
     s.departShift = better.shift;
   };
@@ -172,6 +179,19 @@ export function commuteTimeAction(ctx: PlanContext): ActionProposal | null {
       detail: `Your hours are flexible. Street PM2.5 drops from ${fmtPm(trip.ambient)} to ${fmtPm(better.pm25)} by ${t} as the morning lid breaks up.`,
     },
     apply,
-    [trip.commuter.id],
+    { memberIds: [trip.commuter.id] },
   );
+}
+
+/**
+ * For flexible hours, leave up to two hours earlier or later when the street is cleaner. Both
+ * legs move, and so do the hours spent at home and at work, so a cleaner street at departure
+ * is not enough: the cleanest shift whose whole simulated day harms nobody is proposed.
+ */
+export function commuteTimeAction(ctx: PlanContext): ActionProposal | null {
+  const trip = activeCommute(ctx);
+  const { commute } = ctx.household;
+  if (!trip || !commute.flexible || trip.departIdx === null) return null;
+  const options = cleanerDepartures(ctx, trip.departIdx, trip.ambient);
+  return firstSafe(ctx, options, (better) => leaveAt(ctx, trip, better));
 }

@@ -140,7 +140,7 @@ describe('describePlan', () => {
   it('writes n/a for missing readings and windows and says when there is no smog lid', () => {
     const text = describePlan(sparse);
     expect(line(text, 'Location:')).toBe(
-      `Location: Lahore, Pakistan. Plan covers ${base.horizon.start} to ${base.horizon.end} local time.`,
+      `Location: <place>Lahore, Pakistan</place>. Plan covers ${base.horizon.start} to ${base.horizon.end} local time.`,
     );
     expect(line(text, 'Now:')).toBe(
       'Now: AQI 312 (US EPA), "Hazardous", dominant pm25. PM2.5 n/a µg/m³, mixing height n/a m, wind n/a km/h, dispersion n/a.',
@@ -184,18 +184,18 @@ describe('describePlan', () => {
   it('marks upgrades and untimed items in the routine list', () => {
     const text = describePlan(sparse);
     expect(line(text, '- id=ventilate')).toBe(
-      "- id=ventilate [go] 14:00: Air out at 14:00. The lid lifts after lunch. Impact: 120 µg less inhaled (12% of the affected people's day), 0.4 cigarette-equivalents avoided, 0 kg CO2e saved per day.",
+      "- id=ventilate [go] 14:00: <item>Air out at 14:00. The lid lifts after lunch.</item> Impact: 120 µg less inhaled (12% of the affected people's day), 0.4 cigarette-equivalents avoided, 0 kg CO2e saved per day.",
     );
     expect(line(text, '- id=purifier')).toBe(
-      "- id=purifier [caution, upgrade] any time: Add a purifier. A CADR 250 unit suits 45 m². Impact: 900 µg less inhaled (40% of the affected people's day), 3 cigarette-equivalents avoided, -0.1 kg CO2e saved per day.",
+      "- id=purifier [caution, upgrade] any time: <item>Add a purifier. A CADR 250 unit suits 45 m².</item> Impact: 900 µg less inhaled (40% of the affected people's day), 3 cigarette-equivalents avoided, -0.1 kg CO2e saved per day.",
     );
   });
 
   it("passes each member's limits and doses and the household totals", () => {
     const text = describePlan(base);
     for (const m of base.members) {
-      expect(line(text, `- ${m.name}:`)).toBe(
-        `- ${m.name}: outdoor PM2.5 limit ${m.pm25Limit} µg/m³; WHO-level daily budget ${m.budgetUg} µg; today as usual ${m.baselineDoseUg} µg (${m.baselineCigarettes} cigarettes); with plan ${m.optimizedDoseUg} µg (${m.optimizedCigarettes} cigarettes)`,
+      expect(line(text, `- <name>${m.name}</name>:`)).toBe(
+        `- <name>${m.name}</name>: outdoor PM2.5 limit ${m.pm25Limit} µg/m³; WHO-level daily budget ${m.budgetUg} µg; today as usual ${m.baselineDoseUg} µg (${m.baselineCigarettes} cigarettes); with plan ${m.optimizedDoseUg} µg (${m.optimizedCigarettes} cigarettes)`,
       );
     }
     const t = base.totals;

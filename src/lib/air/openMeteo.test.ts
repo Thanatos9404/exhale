@@ -276,6 +276,76 @@ describe('fetchAirSnapshot', () => {
     expect(err).toMatchObject({ message: 'Unexpected air-quality response', status: undefined });
   });
 
+  it('rejects an air-quality response with no hours as a provider error', async () => {
+    const empty = {
+      ...payloads.air,
+      hourly: { time: [], pm2_5: [], pm10: [], nitrogen_dioxide: [], ozone: [] },
+    };
+    const fetchMock = provider(ok(empty), ok(payloads.weather));
+    await expect(fetchAirSnapshot(place, { fetchImpl: asFetch(fetchMock) })).rejects.toMatchObject({
+      name: 'AirDataError',
+      message: 'Unexpected air-quality response',
+    });
+  });
+
+  it('keeps going when every current reading is null and the weather feed is malformed', async () => {
+    const blank = {
+      ...payloads.air,
+      current: {
+        ...payloads.air.current,
+        pm2_5: null,
+        pm10: null,
+        nitrogen_dioxide: null,
+        ozone: null,
+        sulphur_dioxide: null,
+        carbon_monoxide: null,
+      },
+    };
+    const fetchMock = provider(ok(blank), ok({ current: 'sunny' }));
+    const snap = await fetchAirSnapshot(place, { fetchImpl: asFetch(fetchMock) });
+    expect(snap.current).toMatchObject({
+      pm25: null,
+      pm10: null,
+      no2: null,
+      o3: null,
+      so2: null,
+      co: null,
+      temp: null,
+      rh: null,
+      wind: null,
+      windDir: null,
+      isDay: true,
+    });
+    expect(snap.hourly.every((h) => h.blh === null && h.wind === null)).toBe(true);
+    expect(snap.hourly[snap.nowIndex]?.pm25).toBe(170);
+  });
+
+  it('keeps the air data when the weather feed covers none of the same hours', async () => {
+    const shifted = {
+      ...payloads.weather,
+      hourly: {
+        ...payloads.weather.hourly,
+        time: payloads.weather.hourly.time.map((t) => t.replace('2026', '2025')),
+      },
+    };
+    const fetchMock = provider(ok(payloads.air), ok(shifted));
+    const snap = await fetchAirSnapshot(place, { fetchImpl: asFetch(fetchMock) });
+    expect(snap.hourly).toHaveLength(payloads.air.hourly.time.length);
+    expect(snap.hourly.every((h) => h.blh === null && h.temp === null)).toBe(true);
+    // Current weather does not depend on the hourly timestamps.
+    expect(snap.current.temp).toBe(12);
+  });
+
+  it('points "now" at the first hour when the current time is not in the series', async () => {
+    const stale = {
+      ...payloads.air,
+      current: { ...payloads.air.current, time: '2020-01-01T00:00' },
+    };
+    const fetchMock = provider(ok(stale), ok(payloads.weather));
+    const snap = await fetchAirSnapshot(place, { fetchImpl: asFetch(fetchMock) });
+    expect(snap.nowIndex).toBe(0);
+  });
+
   it('rejects when the air-quality body is not JSON', async () => {
     const fetchMock = provider(
       () => Promise.resolve(new Response('<html>gateway</html>')),

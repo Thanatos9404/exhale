@@ -27,4 +27,4 @@ export {
 export { isRetryable } from './gemini/errors.js';
 export { hedged } from './gemini/hedged.js';
 export { generateJson, type JsonResult } from './gemini/json.js';
-export { streamText, type StreamOptions } from './gemini/stream.js';
+export { streamText, type ChatContent, type StreamOptions } from './gemini/stream.js';

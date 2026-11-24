@@ -1,8 +1,7 @@
+/** Formatting shared by every part of the plan, so a value reads the same everywhere. */
 import type { HourPoint } from '../air/types.js';
 import { defined } from '../assert.js';
 import { fmtHour, hourOf } from '../science/meteo.js';
-
-/** Formatting shared by every part of the plan, so a value reads the same everywhere. */
 
 /** Rounds to `dp` decimal places. Every number in a plan passes through here. */
 export function round(value: number, dp = 0): number {

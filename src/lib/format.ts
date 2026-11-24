@@ -1,3 +1,7 @@
+/**
+ * Display formatting for numbers, doses and times. Numbers use Indian digit grouping. Forecast
+ * times are handled as wall-clock strings, so no time zone conversion can shift an hour.
+ */
 /** Whole number with Indian digit grouping, e.g. 1,24,000. */
 export const fmtInt = (v: number) => Math.round(v).toLocaleString('en-IN');
 
@@ -5,9 +9,15 @@ export const fmtInt = (v: number) => Math.round(v).toLocaleString('en-IN');
 export const fmtDec = (v: number, dp = 1) =>
   v.toLocaleString('en-IN', { minimumFractionDigits: dp, maximumFractionDigits: dp });
 
+/** Decimal places that keep a cigarette count to about two significant digits. */
+function cigDecimals(magnitude: number): number {
+  if (magnitude >= 10) return 0;
+  if (magnitude >= 1) return 1;
+  return 2;
+}
+
 /** "2.4" for big numbers, "0.35" for small ones, so cigarettes read naturally. */
-export const fmtCig = (v: number) =>
-  Math.abs(v) >= 10 ? fmtDec(v, 0) : Math.abs(v) >= 1 ? fmtDec(v, 1) : fmtDec(v, 2);
+export const fmtCig = (v: number) => fmtDec(v, cigDecimals(Math.abs(v)));
 
 /** µg with a readable unit step: 1,240 µg or 1.2 mg. */
 export const fmtDose = (ug: number) =>

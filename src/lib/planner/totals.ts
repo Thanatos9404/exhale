@@ -1,3 +1,4 @@
+/** Aggregation: per-member summaries, household totals and the order items are shown in. */
 import { defined } from '../assert.js';
 import {
   cigarettesFromConcHours,
@@ -9,8 +10,6 @@ import type { Household, Member } from '../profile/schema.js';
 import { round } from './format.js';
 import type { HouseholdExposure } from './simulator.js';
 import type { Impact, MemberSummary, PlanResult, RoutineItem, RoutineStatus } from './types.js';
-
-/** Aggregation: per-member summaries, household totals and the order items are shown in. */
 
 /** Among equally useful items, the ones to stop come before the ones to keep or adjust. */
 const STATUS_ORDER: Record<RoutineStatus, number> = { avoid: 0, go: 1, caution: 2 };
@@ -55,18 +54,27 @@ export function selectedCo2PerDay(
     .reduce((sum, i) => sum + i.impact.co2SavedKg, 0);
 }
 
-function totalDose(exposure: HouseholdExposure): number {
+/** Inhaled PM2.5 summed over every member, µg, unrounded. */
+export function totalDose(exposure: HouseholdExposure): number {
   return [...exposure.values()].reduce((sum, e) => sum + e.doseUg, 0);
 }
 
+/** What `planTotals` adds up. */
+export interface PlanTotalsInput {
+  /** The household's day with today's habits. */
+  base: HouseholdExposure;
+  /** The household's day with the selected free actions applied. */
+  optimized: HouseholdExposure;
+  /** What the optimised day saves the whole household. */
+  impact: Impact;
+  /** kg CO2e saved per day by the selected free actions. */
+  co2PerDay: number;
+  commute: Household['commute'];
+}
+
 /** Household totals. Weekly CO2 counts only commuting days; working from home saves none. */
-export function planTotals(
-  base: HouseholdExposure,
-  optimized: HouseholdExposure,
-  impact: Impact,
-  co2PerDay: number,
-  commute: Household['commute'],
-): PlanResult['totals'] {
+export function planTotals(input: PlanTotalsInput): PlanResult['totals'] {
+  const { base, optimized, impact, co2PerDay, commute } = input;
   const workDays = commute.mode === 'wfh' ? 0 : commute.daysPerWeek;
   return {
     baselineDoseUg: round(totalDose(base)),

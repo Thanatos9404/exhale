@@ -1,3 +1,7 @@
+/**
+ * Scenarios: one version of the household's day as the simulator plays it. Defines the shape,
+ * builds the baseline from the profile, and copies it so a change can be tried safely.
+ */
 import type { HourPoint } from '../air/types.js';
 import type { CommuteMode } from '../science/commute.js';
 import { SOURCE_RATE, type Purifier } from '../science/indoor.js';

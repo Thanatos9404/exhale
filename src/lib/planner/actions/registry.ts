@@ -1,5 +1,11 @@
+/**
+ * The list of recommendation builders and the one step every proposal passes through: each
+ * builder's proposal is vetted by the do-no-harm rule, then the survivors are settled into a
+ * list that is honest as a whole.
+ */
+import { settle } from '../combine.js';
 import type { ActionBuilder, ActionProposal, PlanContext } from '../context.js';
-import { cloneScenario, type Scenario } from '../scenario.js';
+import { isSafeAlone } from '../guard.js';
 import { commuteModeAction, commuteTimeAction } from './commute.js';
 import { exerciseActions } from './exercise.js';
 import { filtrationAction } from './filtration.js';
@@ -8,8 +14,9 @@ import { coilAction, cookingAction, incenseAction, smokingAction } from './homeS
 import { lidAction, ventilateAction } from './weather.js';
 
 /**
- * Every recommendation the engine knows, in the order they are considered. The final list is
- * sorted by impact, and ties keep this order, so changing it changes how the plan reads.
+ * Every recommendation the engine knows, in the order they are considered. The order matters
+ * twice: when two actions clash the earlier one is kept, and the final list is sorted by impact
+ * with ties keeping this order, so changing it changes how the plan reads.
  */
 export const ACTION_BUILDERS: readonly ActionBuilder[] = [
   lidAction,
@@ -26,26 +33,20 @@ export const ACTION_BUILDERS: readonly ActionBuilder[] = [
   cleanCookingUpgrade,
 ];
 
-/** Runs every builder and flattens the proposals; builders that do not apply return null. */
+/**
+ * Runs every builder (those that do not apply return null) and keeps only what the plan may
+ * recommend. This is the single gate between a builder and the plan:
+ *  1. a proposal that on its own would raise any member's dose or concentration-hours, or the
+ *     household's CO2e, is dropped (`isSafeAlone`), whichever builder made it;
+ *  2. the rest are settled so they also hold up together (`settle`).
+ */
 export function collectProposals(
   ctx: PlanContext,
   builders: readonly ActionBuilder[] = ACTION_BUILDERS,
 ): ActionProposal[] {
-  return builders.flatMap((build) => build(ctx) ?? []);
-}
-
-/**
- * The baseline with every selected free action applied. Upgrades and advice-only items carry
- * no change, so they never alter the optimised day.
- */
-export function optimizedScenario(
-  baseline: Scenario,
-  proposals: readonly ActionProposal[],
-  isSelected: (id: string) => boolean,
-): Scenario {
-  const optimized = cloneScenario(baseline);
-  for (const { item, apply } of proposals) {
-    if (apply && item.freeAction && isSelected(item.id)) apply(optimized);
-  }
-  return optimized;
+  const proposed = builders.flatMap((build) => build(ctx) ?? []);
+  return settle(
+    ctx,
+    proposed.filter((proposal) => isSafeAlone(ctx, proposal)),
+  );
 }

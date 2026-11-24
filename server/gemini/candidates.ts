@@ -1,11 +1,11 @@
-import { GoogleGenAI } from '@google/genai';
-import { breaker } from './breaker.js';
-
 /**
  * Which keys and models Gemini requests may use, and in what order. Keys are read from the server
  * environment only and never sent to the browser. Every key × model pair is a candidate, so one
  * exhausted key or overloaded model never takes the feature down.
  */
+import { GoogleGenAI } from '@google/genai';
+import { breaker } from './breaker.js';
+import { resetGeminiBudget } from './budget.js';
 
 /**
  * Model order when GEMINI_MODEL is unset: the strongest fast model first, then lighter models and
@@ -74,18 +74,19 @@ export function getClient(): GenAiLike | null {
   return clients()[0]?.client ?? null;
 }
 
-/** Number of configured keys, reported by /api/health without exposing them. */
+/** Number of configured keys. Kept server-side: /api/health no longer reports it. */
 export function keyCount(): number {
   return clients().length;
 }
 
 /**
- * Test hook: replaces the configured clients and clears breaker state. `undefined` restores the
- * environment's keys on next use; `null` simulates no key at all.
+ * Test hook: replaces the configured clients and clears breaker state and the call budget.
+ * `undefined` restores the environment's keys on next use; `null` simulates no key at all.
  */
 export function setClient(client: GenAiLike | null | undefined): void {
   cached = client === undefined ? undefined : single(client);
   breaker.reset();
+  resetGeminiBudget();
 }
 
 /** GEMINI_MODEL first when set, then the defaults, without duplicates. */

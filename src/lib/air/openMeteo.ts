@@ -1,13 +1,17 @@
-import { z } from 'zod';
-import type { AirSnapshot, HourPoint, Place } from './types.js';
-
 /**
- * Client for the free, keyless Open-Meteo APIs:
- *  - Air quality (CAMS global model): PM2.5, PM10, NO2, O3, SO2, CO
- *  - Weather forecast: temperature, wind, humidity and boundary-layer height
- *  - Geocoding: city search
- * Runs unchanged in the browser and in Node 20+ server functions.
+ * Client for the free, keyless Open-Meteo APIs: air quality from the CAMS global model (PM2.5,
+ * PM10, NO2, O3, SO2, CO), the weather forecast (temperature, wind, humidity, boundary-layer
+ * height) and geocoding for city search. Runs unchanged in the browser and in Node 20+ server
+ * functions.
  */
+import {
+  airSchema,
+  geocodeSchema,
+  weatherSchema,
+  type AirFeed,
+  type WeatherFeed,
+} from './openMeteoSchemas.js';
+import type { AirSnapshot, CurrentConditions, HourPoint, Place } from './types.js';
 
 /** Open-Meteo air-quality endpoint (CAMS global model). */
 export const AIR_URL = 'https://air-quality-api.open-meteo.com/v1/air-quality';
@@ -15,64 +19,6 @@ export const AIR_URL = 'https://air-quality-api.open-meteo.com/v1/air-quality';
 export const WEATHER_URL = 'https://api.open-meteo.com/v1/forecast';
 /** Open-Meteo geocoding endpoint, for city search. */
 export const GEOCODE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
-
-const nums = z.array(z.number().nullable());
-
-const airSchema = z.object({
-  utc_offset_seconds: z.number(),
-  timezone: z.string(),
-  current: z.object({
-    time: z.string(),
-    pm2_5: z.number().nullable(),
-    pm10: z.number().nullable(),
-    nitrogen_dioxide: z.number().nullable(),
-    ozone: z.number().nullable(),
-    sulphur_dioxide: z.number().nullable(),
-    carbon_monoxide: z.number().nullable(),
-  }),
-  hourly: z.object({
-    time: z.array(z.string()),
-    pm2_5: nums,
-    pm10: nums,
-    nitrogen_dioxide: nums,
-    ozone: nums,
-  }),
-});
-
-const weatherSchema = z.object({
-  current: z.object({
-    time: z.string(),
-    temperature_2m: z.number().nullable(),
-    relative_humidity_2m: z.number().nullable(),
-    wind_speed_10m: z.number().nullable(),
-    wind_direction_10m: z.number().nullable(),
-    is_day: z.number(),
-  }),
-  hourly: z.object({
-    time: z.array(z.string()),
-    temperature_2m: nums,
-    wind_speed_10m: nums,
-    boundary_layer_height: nums,
-    relative_humidity_2m: nums,
-  }),
-});
-
-const geocodeSchema = z.object({
-  results: z
-    .array(
-      z.object({
-        id: z.number(),
-        name: z.string(),
-        latitude: z.number(),
-        longitude: z.number(),
-        country: z.string().optional(),
-        admin1: z.string().optional(),
-        timezone: z.string().optional(),
-        population: z.number().optional(),
-      }),
-    )
-    .optional(),
-});
 
 /** The provider failed or sent an unexpected shape. `status` is the HTTP code, if any. */
 export class AirDataError extends Error {
@@ -129,8 +75,8 @@ export function buildWeatherUrl(lat: number, lon: number): string {
 
 /** Merge the two hourly feeds on their shared local timestamps. Exported for tests. */
 export function mergeHourly(
-  air: z.infer<typeof airSchema>['hourly'],
-  weather: z.infer<typeof weatherSchema>['hourly'] | null,
+  air: AirFeed['hourly'],
+  weather: WeatherFeed['hourly'] | null,
 ): HourPoint[] {
   const wIndex = new Map<string, number>();
   weather?.time.forEach((t, i) => wIndex.set(t, i));
@@ -162,6 +108,27 @@ export function findNowIndex(hourly: readonly HourPoint[], currentTime: string):
   return best;
 }
 
+/** The weather feed, or null when the request failed or sent an unexpected shape. */
+function parseWeather(raw: unknown): WeatherFeed | null {
+  if (raw == null) return null;
+  const parsed = weatherSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
+}
+
+/** Current weather readings; all null (and assumed daytime) when the feed is missing. */
+function currentWeather(
+  w: WeatherFeed['current'] | null,
+): Pick<CurrentConditions, 'temp' | 'rh' | 'wind' | 'windDir' | 'isDay'> {
+  if (!w) return { temp: null, rh: null, wind: null, windDir: null, isDay: true };
+  return {
+    temp: w.temperature_2m,
+    rh: w.relative_humidity_2m,
+    wind: w.wind_speed_10m,
+    windDir: w.wind_direction_10m,
+    isDay: w.is_day === 1,
+  };
+}
+
 /**
  * Live air and weather for a place, merged into one hourly series. Air data is required;
  * weather is optional and its fields are null when that request fails.
@@ -178,10 +145,9 @@ export async function fetchAirSnapshot(
   ]);
   const air = airSchema.safeParse(airRaw);
   if (!air.success) throw new AirDataError('Unexpected air-quality response');
-  const weather = weatherRaw == null ? null : weatherSchema.safeParse(weatherRaw);
-  const w = weather?.success ? weather.data : null;
+  const weather = parseWeather(weatherRaw);
 
-  const hourly = mergeHourly(air.data.hourly, w?.hourly ?? null);
+  const hourly = mergeHourly(air.data.hourly, weather?.hourly ?? null);
   const c = air.data.current;
   return {
     place: { ...place, timezone: air.data.timezone },
@@ -195,11 +161,7 @@ export async function fetchAirSnapshot(
       o3: c.ozone,
       so2: c.sulphur_dioxide,
       co: c.carbon_monoxide,
-      temp: w?.current.temperature_2m ?? null,
-      rh: w?.current.relative_humidity_2m ?? null,
-      wind: w?.current.wind_speed_10m ?? null,
-      windDir: w?.current.wind_direction_10m ?? null,
-      isDay: w ? w.current.is_day === 1 : true,
+      ...currentWeather(weather?.current ?? null),
     },
     hourly,
     nowIndex: findNowIndex(hourly, c.time),

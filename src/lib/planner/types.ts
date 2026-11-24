@@ -1,9 +1,8 @@
+/** Public shapes of a plan. The UI, the AI prompts and the rule-based fallback all read these. */
 import type { AqiLevel } from '../air/aqi.js';
 import type { Pollutant } from '../air/types.js';
 import type { Dispersion } from '../science/meteo.js';
 import type { Household } from '../profile/schema.js';
-
-/** Public shapes of a plan. The UI, the AI prompts and the rule-based fallback all read these. */
 
 /** Which part of the day a recommendation changes; drives the icon and grouping in the UI. */
 export type RoutineKind = 'ventilate' | 'exercise' | 'commute' | 'protect' | 'home' | 'upgrade';

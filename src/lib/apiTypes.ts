@@ -1,7 +1,10 @@
+/**
+ * Contracts shared by the browser and the server functions. Both sides import the same shapes
+ * and schemas from here, so a response cannot change on one side without the other noticing.
+ */
 import { z } from 'zod';
 import type { PlanResult } from './planner/engine.js';
-
-/** Contracts shared by the browser and the server functions. */
+import { planResultSchema } from './planner/planSchema.js';
 
 /** A short practical tip written by the model. */
 const tip = z.object({
@@ -33,6 +36,14 @@ export interface PlanResponse {
   model: string | null;
 }
 
+/** Validates the body of a successful POST /api/plan before the browser uses it. */
+export const planResponseSchema: z.ZodType<PlanResponse> = z.object({
+  plan: planResultSchema,
+  ai: aiPlanSchema.nullable(),
+  source: z.enum(['gemini', 'claude', 'rules']),
+  model: z.string().nullable(),
+});
+
 /** GET /api/health: whether the server is up and which AI providers are configured. */
 export interface HealthResponse {
   ok: boolean;
@@ -41,6 +52,17 @@ export interface HealthResponse {
   /** Configured providers in fallback order, e.g. ["gemini", "claude"]. */
   providers?: string[];
 }
+
+/** Validates the body of a successful GET /api/health. */
+export const healthResponseSchema: z.ZodType<HealthResponse> = z.object({
+  ok: z.boolean(),
+  ai: z.boolean(),
+  model: z.string().nullable(),
+  providers: z.array(z.string()).optional(),
+});
+
+/** The JSON body of a failed request: `{ error: "message safe to show" }`. */
+export const errorBodySchema = z.object({ error: z.string().min(1) });
 
 /** One chat turn. 'model' is the assistant, following the Gemini role names. */
 export interface ChatMessage {

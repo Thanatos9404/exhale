@@ -1,3 +1,4 @@
+/** The plan's description of the air: current risk and readings, notable windows, headline. */
 import { aqiCategory, aqiSeries, type AqiResult } from '../air/aqi.js';
 import type { AqiStandard, HourPoint } from '../air/types.js';
 import {
@@ -8,8 +9,6 @@ import {
 } from '../science/meteo.js';
 import { hourSpan, round } from './format.js';
 import type { PlanResult } from './types.js';
-
-/** The plan's description of the air: current risk and readings, notable windows, headline. */
 
 /** Used when the series has no AQI for the current hour. */
 const NO_READING: Pick<AqiResult, 'aqi' | 'dominant'> = { aqi: 0, dominant: 'pm25' };

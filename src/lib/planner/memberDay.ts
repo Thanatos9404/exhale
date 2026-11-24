@@ -1,12 +1,11 @@
-import { MODES, N95_FACTOR, tripExposure } from '../science/commute.js';
-import type { Activity } from '../science/exposure.js';
-import type { Household, Member } from '../profile/schema.js';
-import type { Scenario } from './scenario.js';
-
 /**
  * Where one member is during the day and how hard they breathe, derived once per scenario so
  * the hour-by-hour simulation only has to look things up.
  */
+import { MODES, N95_FACTOR, tripExposure } from '../science/commute.js';
+import type { Activity } from '../science/exposure.js';
+import type { Household, Member } from '../profile/schema.js';
+import type { Scenario } from './scenario.js';
 
 /** Assumed indoor/outdoor PM2.5 ratio while at an office. */
 export const OFFICE_FACTOR = 0.55;

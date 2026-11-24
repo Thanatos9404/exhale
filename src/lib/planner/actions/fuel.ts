@@ -1,7 +1,6 @@
+/** Fuel upgrades for heating and cooking. They cost money, so they stay out of the free total. */
 import { SOURCE_RATE } from '../../science/indoor.js';
 import { upgrade, type ActionProposal, type PlanContext } from '../context.js';
-
-/** Fuel upgrades for heating and cooking. They cost money, so they stay out of the free total. */
 
 /** Replace a wood or coal heater, which fills a sealed room with smoke. */
 export function heatingUpgrade(ctx: PlanContext): ActionProposal | null {

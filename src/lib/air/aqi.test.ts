@@ -88,3 +88,87 @@ describe('windowMean and aqiSeries', () => {
     expect(hourlyAqi(hourly[afternoon]!, 'in').aqi).toBeLessThan(series[afternoon]!.aqi);
   });
 });
+
+describe('extreme and missing values', () => {
+  it('tops out at the last index of the table for absurdly high concentrations', () => {
+    expect(subIndex(1e9, IN_TABLES.pm25)).toBe(500);
+    expect(subIndex(Number.MAX_VALUE, US_TABLES.pm10)).toBe(500);
+    // The US ozone table ends at 300; beyond it the 8 h scale has no higher band.
+    expect(subIndex(5000, US_TABLES.o3)).toBe(300);
+  });
+
+  it('scores infinite or non-numeric concentrations as 0 instead of the top of the scale', () => {
+    expect(subIndex(Number.POSITIVE_INFINITY, US_TABLES.pm25)).toBe(0);
+    expect(subIndex(Number.NEGATIVE_INFINITY, US_TABLES.pm25)).toBe(0);
+    expect(computeAqi({ pm25: Number.POSITIVE_INFINITY, pm10: Number.NaN }, 'us')).toEqual({
+      aqi: 0,
+      dominant: 'pm25',
+      subIndices: {},
+    });
+  });
+
+  it('scores an empty table as 0', () => {
+    expect(subIndex(42, [])).toBe(0);
+  });
+
+  it('reports AQI 0 with PM2.5 as the nominal dominant when nothing was measured', () => {
+    expect(computeAqi({}, 'in')).toEqual({ aqi: 0, dominant: 'pm25', subIndices: {} });
+    expect(computeAqi({ pm25: null, pm10: null, no2: null, o3: null }, 'us').aqi).toBe(0);
+  });
+
+  it('keeps the first pollutant as dominant when two tie', () => {
+    // 30 µg/m³ PM2.5 and 50 µg/m³ PM10 both score exactly 50 on the India scale.
+    const r = computeAqi({ pm25: 30, pm10: 50 }, 'in');
+    expect(r.subIndices).toEqual({ pm25: 50, pm10: 50 });
+    expect(r.dominant).toBe('pm25');
+  });
+
+  it('truncates US particle readings before lookup, as the EPA prescribes', () => {
+    // 9.09 truncates to 9.0 (AQI 50); 9.1 starts the next band (AQI 51).
+    expect(computeAqi({ pm25: 9.09 }, 'us').aqi).toBe(50);
+    expect(computeAqi({ pm25: 9.1 }, 'us').aqi).toBe(51);
+    expect(computeAqi({ pm10: 54.9 }, 'us').aqi).toBe(50);
+    expect(computeAqi({ pm10: 55 }, 'us').aqi).toBe(51);
+  });
+
+  it('categorises values outside the scale: negative as good, beyond 500 and NaN as the top', () => {
+    for (const standard of ['us', 'in'] as const) {
+      expect(aqiCategory(-20, standard).level).toBe(0);
+      expect(aqiCategory(0, standard).level).toBe(0);
+      expect(aqiCategory(9999, standard).level).toBe(5);
+      expect(aqiCategory(Number.POSITIVE_INFINITY, standard).level).toBe(5);
+      expect(aqiCategory(Number.NaN, standard).level).toBe(5);
+    }
+  });
+
+  it('changes category exactly at each published edge of both scales', () => {
+    const edges = { us: [50, 100, 150, 200, 300], in: [50, 100, 200, 300, 400] } as const;
+    for (const standard of ['us', 'in'] as const) {
+      edges[standard].forEach((edge, level) => {
+        expect(aqiCategory(edge, standard).level).toBe(level);
+        expect(aqiCategory(edge + 1, standard).level).toBe(level + 1);
+      });
+    }
+  });
+
+  it('returns nothing for an empty series and null for a window outside the data', () => {
+    expect(aqiSeries([], 'us')).toEqual([]);
+    expect(windowMean([], 0, 10)).toBeNull();
+    expect(windowMean([5, 7], 3, 9)).toBeNull();
+    expect(windowMean([5, 7], 1, 0)).toBeNull();
+    expect(windowMean([5, Number.NaN, 7], 0, 2)).toBe(6);
+  });
+
+  it('uses only the hours that exist for the first hours of a series', () => {
+    const [first] = aqiSeries(makeHourly(1), 'in');
+    // With one hour of history the trailing mean is that hour, so it matches the instant AQI.
+    expect(first).toEqual(hourlyAqi(makeHourly(1)[0]!, 'in'));
+  });
+
+  it('scores an hour with every pollutant missing as 0 inside an otherwise valid series', () => {
+    const blank = { pm25: null, pm10: null, no2: null, o3: null };
+    const hourly = makeHourly(1).map((h) => ({ ...h, ...blank }));
+    expect(aqiSeries(hourly, 'us').every((r) => r.aqi === 0)).toBe(true);
+    expect(hourlyAqi(blank, 'in').aqi).toBe(0);
+  });
+});

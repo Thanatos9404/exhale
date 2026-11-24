@@ -1,9 +1,9 @@
-import type { PlanResult, RoutineItem } from '../src/lib/planner/engine.js';
-
 /**
- * Offline answers built from the engine's plan, used when Gemini is not configured or
- * unavailable. They keep the assistant useful and honest: every figure comes from the plan.
+ * Offline answers built from the engine's plan, used when no AI provider is configured, none
+ * answers, or the request deadline runs out. They keep the assistant useful and honest: every
+ * figure comes from the plan.
  */
+import type { PlanResult, RoutineItem } from '../src/lib/planner/engine.js';
 
 const bullet = (i: RoutineItem) =>
   `- **${i.time ? `${i.time} ` : ''}${i.title}.** ${i.detail}${i.impact.doseSavedUg > 0 ? ` Saves about ${i.impact.doseSavedUg.toLocaleString('en-IN')} µg (${i.impact.cigarettesAvoided} cigarette-equivalents).` : ''}`;

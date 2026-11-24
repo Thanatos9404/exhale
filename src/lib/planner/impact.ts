@@ -1,3 +1,4 @@
+/** Turns two simulated days into the impact figures a recommendation or a plan reports. */
 import { cigarettesFromConcHours } from '../science/exposure.js';
 import { round } from './format.js';
 import type { HouseholdExposure } from './simulator.js';
@@ -10,8 +11,9 @@ export function noImpact(): Impact {
 
 /**
  * What changing from `base` to `next` saves for the given members, rounded for display.
- * Cigarettes avoided keep the sign of the change, so a change that makes things worse reads
- * as negative rather than zero.
+ * Every figure keeps the sign of the change, so a change that makes things worse reads as
+ * negative rather than zero. The do-no-harm rule in `guard` is what keeps such changes out of
+ * a plan; nothing is clamped here.
  */
 export function impactBetween(
   base: HouseholdExposure,
@@ -34,7 +36,7 @@ export function impactBetween(
     doseSavedUg: round(saved),
     exposureCutPct: baseTotal > 0 ? round((saved / baseTotal) * 100, 1) : 0,
     cigarettesAvoided: round(
-      cigarettesFromConcHours(Math.max(0, concSaved)) * Math.sign(concSaved),
+      cigarettesFromConcHours(Math.abs(concSaved)) * Math.sign(concSaved),
       2,
     ),
     co2SavedKg: round(co2SavedKg, 2),

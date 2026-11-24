@@ -1,10 +1,9 @@
+/** Filtration: run the purifier the household owns, or build a cheap box-fan filter. */
 import { simulateRoom, type Purifier } from '../../science/indoor.js';
 import { fmtHour } from '../../science/meteo.js';
 import { freeAction, upgrade, type ActionProposal, type PlanContext } from '../context.js';
 import { hourAt, round } from '../format.js';
 import type { ScenarioChange } from '../scenario.js';
-
-/** Filtration: run the purifier the household owns, or build a cheap box-fan filter. */
 
 function runPurifier(ctx: PlanContext, purifier: Exclude<Purifier, 'none'>): ActionProposal {
   const { home } = ctx.household;

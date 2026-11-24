@@ -1,12 +1,11 @@
-import { COOLDOWN_MS, QUOTA_COOLDOWN_MS } from './config.js';
-import { isQuotaError } from './errors.js';
-
 /**
  * Circuit breaker for key × model pairs. A pair that fails with a retryable error is skipped for a
  * few minutes so later requests go straight to a healthy pair. A quota error skips it for longer
  * and marks it out of quota, so the runners do not spend a request finding that out again.
  * State lives in instance memory, which is enough: a cold instance simply learns again.
  */
+import { COOLDOWN_MS, QUOTA_COOLDOWN_MS } from './config.js';
+import { isQuotaError } from './errors.js';
 
 /** One key × model pair. `key` is a secret-free label such as "k1", never the key itself. */
 export interface PairRef {

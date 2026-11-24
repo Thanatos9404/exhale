@@ -1,3 +1,8 @@
+/**
+ * Where the user is: the browser's geolocation turned into a named place. Coordinates are rounded
+ * to about 1 km before anything else sees them, including the BigDataCloud lookup that names the
+ * place, and a failed lookup still yields a usable place with a coordinate label.
+ */
 import { z } from 'zod';
 import type { Place } from './air/types';
 import { roundCoord } from './air/openMeteo';

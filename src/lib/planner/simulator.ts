@@ -1,3 +1,8 @@
+/**
+ * Hour-by-hour exposure simulation. For every member and every hour of the horizon it works
+ * out where they are (home, work, school, in transit, exercising), the PM2.5 there, and how
+ * hard they breathe, then sums the inhaled dose.
+ */
 import type { HourPoint } from '../air/types.js';
 import { BREATHING_RATE, type Activity } from '../science/exposure.js';
 import { SOURCE_RATE, simulateRoom, sourceIncrement } from '../science/indoor.js';
@@ -11,12 +16,6 @@ import {
   type MemberDay,
 } from './memberDay.js';
 import type { Scenario } from './scenario.js';
-
-/**
- * Hour-by-hour exposure simulation. For every member and every hour of the horizon it works
- * out where they are (home, work, school, in transit, exercising), the PM2.5 there, and how
- * hard they breathe, then sums the inhaled dose.
- */
 
 /** How far ahead a plan looks, in hours. */
 export const HORIZON_HOURS = 24;
@@ -134,8 +133,23 @@ class MemberRun {
   }
 }
 
+/** The commute fields of a scenario, blanked for members who do not make the commute. */
+const NO_COMMUTE = { commuteMode: 'wfh', n95: false, departShift: 0 } as const;
+
+/**
+ * Everything in a scenario that can change one member's day, as a cache key: the whole scenario
+ * minus the other members' exercise and, for anyone but the commuter, minus the commute.
+ */
+function dayKey(hh: Household, m: Member, s: Scenario): string {
+  const commute = hh.commute.memberId === m.id ? {} : NO_COMMUTE;
+  return JSON.stringify({ ...s, ...commute, exercise: s.exercise[m.id] ?? null });
+}
+
 /** Simulates the household over `HORIZON_HOURS` from the current hour of an hourly forecast. */
 export class Simulator {
+  /** Days already played, per member. Vetting a plan replays many near-identical days. */
+  private readonly played = new WeakMap<Member, Map<string, Exposure>>();
+
   /** First simulated index into `hourly` (the current hour). */
   readonly from: number;
   /** One past the last simulated index. */
@@ -170,9 +184,19 @@ export class Simulator {
     return room.indoorPm25 + add;
   }
 
-  /** One member's exposure over the horizon. */
+  /**
+   * One member's exposure over the horizon. Remembered per member and scenario, so the household
+   * and forecast must not be changed after the simulator is built.
+   */
   memberExposure(m: Member, s: Scenario): Exposure {
-    return new MemberRun(this, m, s).run();
+    const days = this.played.get(m) ?? new Map<string, Exposure>();
+    this.played.set(m, days);
+    const key = dayKey(this.hh, m, s);
+    const known = days.get(key);
+    if (known) return known;
+    const exposure = new MemberRun(this, m, s).run();
+    days.set(key, exposure);
+    return exposure;
   }
 
   /** Every member's exposure over the horizon. */

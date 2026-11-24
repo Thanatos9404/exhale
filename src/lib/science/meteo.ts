@@ -1,14 +1,10 @@
-import type { HourPoint } from '../air/types.js';
-
 /**
- * Winter smog meteorology.
- *
- * On calm winter nights the ground cools fast, a layer of warm air settles on top of colder
- * air, and the planetary boundary layer (the height pollution can mix into) collapses to tens
- * of metres. The ventilation coefficient (VC = boundary-layer height × wind speed) measures how
- * much room and wind the air has to dilute emissions. The India Meteorological Department treats
- * VC below about 6000 m²/s with weak wind as unfavourable for dispersion.
+ * Winter smog meteorology. On calm winter nights warm air settles over colder air and the
+ * boundary layer (the height pollution can mix into) collapses to tens of metres. The ventilation
+ * coefficient (boundary-layer height × wind speed) measures how much room and wind the air has to
+ * dilute emissions; India's Meteorological Department treats below about 6000 m²/s as unfavourable.
  */
+import type { HourPoint } from '../air/types.js';
 
 /** How well the air can dilute emissions, from the ventilation coefficient. */
 export type Dispersion = 'stagnant' | 'poor' | 'moderate' | 'good';
@@ -90,6 +86,16 @@ function availableMean(run: readonly HourPoint[]): number | null {
   return n === 0 ? null : sum / n;
 }
 
+/** Which runs `cleanestWindow` may pick. */
+export interface CleanestWindowOptions {
+  /** Length of the run in hours. Default 1. */
+  duration?: number;
+  /** Earliest local hour of day the run may start. Default 0. */
+  dayStart?: number;
+  /** Latest local hour of day the run may start. Default 23. */
+  dayEnd?: number;
+}
+
 /**
  * Cleanest run of `duration` consecutive hours in `hourly[from..to)` whose start hour-of-day
  * falls within [dayStart, dayEnd]. Runs with a missing reading are skipped. Returns null if
@@ -99,10 +105,9 @@ export function cleanestWindow(
   hourly: readonly HourPoint[],
   from: number,
   to: number,
-  duration = 1,
-  dayStart = 0,
-  dayEnd = 23,
+  options: CleanestWindowOptions = {},
 ): Window | null {
+  const { duration = 1, dayStart = 0, dayEnd = 23 } = options;
   let best: Window | null = null;
   for (const { start, point } of runStarts(hourly, from, to, duration)) {
     const hod = hourOf(point.time);
