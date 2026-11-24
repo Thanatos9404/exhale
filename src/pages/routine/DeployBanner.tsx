@@ -1,3 +1,8 @@
+/**
+ * Notice that stands in for the AI summary on the Routine page. It says why no AI wording is
+ * showing (not deployed yet, deploying now, or the rules engine answered) and that the actions
+ * below still come from the planning engine.
+ */
 import { Sparkles } from 'lucide-react';
 
 /** Why there are no AI explanations on screen right now. */

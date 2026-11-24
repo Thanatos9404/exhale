@@ -1,3 +1,8 @@
+/**
+ * Tip cards of the Routine page: indoor air hacks and sustainable swaps. A deployment with AI
+ * wording supplies tailored tips; without one the curated lists fill in, so the section is
+ * never empty.
+ */
 import type { ReactNode } from 'react';
 import { Leaf, Wind } from 'lucide-react';
 import { Badge, Card, CardHeader } from '@/components/ui/primitives';

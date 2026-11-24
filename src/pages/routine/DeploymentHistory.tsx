@@ -1,3 +1,7 @@
+/**
+ * History list at the foot of the Routine page: the recent deployments, newest first, with the
+ * one on screen marked as current. The list lives in this browser only.
+ */
 import { Badge, Card, CardHeader, Dot } from '@/components/ui/primitives';
 import { relativeTime } from '@/lib/format';
 import type { Deployment } from '@/state/Deployments';

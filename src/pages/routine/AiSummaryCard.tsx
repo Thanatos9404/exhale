@@ -1,3 +1,8 @@
+/**
+ * Summary card for a deployed routine: the model's own headline and summary, credited to the
+ * model that wrote them. The page renders it only when a deployment returned AI wording, and
+ * shows DeployBanner in its place otherwise.
+ */
 import { Sparkles } from 'lucide-react';
 import { Card } from '@/components/ui/primitives';
 import type { AiPlan } from '@/lib/apiTypes';

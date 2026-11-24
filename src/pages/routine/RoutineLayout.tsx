@@ -1,3 +1,7 @@
+/**
+ * Frame of the Routine page: its header, body and header actions. Kept apart from the page so
+ * the loading, error and ready states all render inside the same frame.
+ */
 import type { ReactNode } from 'react';
 import { Link } from 'wouter';
 import { Rocket } from 'lucide-react';

@@ -1,3 +1,8 @@
+/**
+ * Deployment summary at the top of the Routine page: status, who explained the plan, where it is
+ * for and when it was deployed, with the build log underneath. It only presents; the labels come
+ * from ./routineView.
+ */
 import { Card, Dot } from '@/components/ui/primitives';
 import { relativeTime } from '@/lib/format';
 import type { Deployment, LogLine } from '@/state/Deployments';

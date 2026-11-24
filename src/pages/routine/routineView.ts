@@ -1,3 +1,8 @@
+/**
+ * View logic for the Routine page, kept free of JSX so it can be unit tested: which plan is on
+ * screen (the deployed one, else the local one), how it splits into free actions and upgrades,
+ * and the wording for deployment status and providers.
+ */
 import type { AiPlan } from '@/lib/apiTypes';
 import type { PlanResult, RoutineItem } from '@/lib/planner/engine';
 import type { Deployment, LogLine, useDeployments } from '@/state/Deployments';
@@ -50,7 +55,7 @@ export function statusIndicator(status: DeployStatus, latestAt: string | null): 
   if (status === 'building') return { dot: 'bg-amber', label: 'Building', pulse: true };
   if (status === 'error') return { dot: 'bg-red', label: 'Error', pulse: false };
   if (latestAt) return { dot: 'bg-green', label: 'Ready', pulse: false };
-  return { dot: 'bg-line-strong', label: 'Not deployed', pulse: false };
+  return { dot: 'bg-field-border', label: 'Not deployed', pulse: false };
 }
 
 /** Provider that wrote a deployment's explanations, named by model id when the API reported one. */

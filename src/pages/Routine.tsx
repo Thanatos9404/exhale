@@ -1,8 +1,13 @@
+/**
+ * The Routine page: deploys today's plan, shows its build, and lists the actions for the
+ * household and the bulletin for the neighbourhood.
+ */
 import { ErrorCard, LoadingCard } from '@/components/states';
 import { useLocalPlan } from '@/hooks/useAir';
 import { useAppState } from '@/state/AppState';
 import { useDeployments } from '@/state/Deployments';
 import { AiSummaryCard } from './routine/AiSummaryCard';
+import { CommunityAdvisoryCard } from './routine/CommunityAdvisoryCard';
 import { DeployBanner } from './routine/DeployBanner';
 import { DeploymentCard } from './routine/DeploymentCard';
 import { DeploymentHistory } from './routine/DeploymentHistory';
@@ -14,7 +19,7 @@ import { UpgradesCard } from './routine/UpgradesCard';
 
 /** Routine page: deploy today's plan, follow the build, and work through the actions. */
 export default function Routine() {
-  const { household } = useAppState();
+  const { household, place } = useAppState();
   const { plan: localPlan, isLoading, isError, error, refetch } = useLocalPlan();
   const { status, logs, latest, history, deploy, done, toggleDone } = useDeployments();
 
@@ -60,6 +65,10 @@ export default function Routine() {
         members={household.members}
         done={done}
         onToggleDone={toggleDone}
+      />
+      <CommunityAdvisoryCard
+        plan={view.plan}
+        place={{ label: view.plan.placeLabel, timezone: place.timezone }}
       />
       {view.upgrades.length > 0 && <UpgradesCard view={view} members={household.members} />}
       <TipsGrid view={view} />

@@ -1,3 +1,7 @@
+/**
+ * The build log under the deployment summary. A plan is deployed like a software build, so each
+ * planning step arrives as a log line. The log is folded away once a run has succeeded.
+ */
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Check, ChevronRight, CircleAlert, Sparkles, TriangleAlert } from 'lucide-react';

@@ -1,3 +1,7 @@
+/**
+ * The free-actions card of the Routine page: today's no-cost changes as a checklist, the top
+ * one opened with its AI explanation once a deploy has written it, and the combined impact.
+ */
 import { Link } from 'wouter';
 import { ChevronRight } from 'lucide-react';
 import { Badge, Card, CardFooter, CardHeader } from '@/components/ui/primitives';
@@ -39,18 +43,23 @@ export function FreeActionsCard({ view, members, done, onToggleDone }: FreeActio
         <span className="sr-only">Done</span>
       </div>
       <ul className="border-t border-line">
-        {free.map((item, i) => (
-          <RoutineRow
-            key={item.id}
-            item={item}
-            members={members}
-            why={why.get(item.id)}
-            whyBy={writer}
-            done={done.has(item.id)}
-            onToggleDone={() => onToggleDone(item.id)}
-            defaultOpen={i === 0 && Boolean(ai)}
-          />
-        ))}
+        {free.map((item, i) => {
+          const opensExplained = i === 0 && ai !== null;
+          return (
+            <RoutineRow
+              // A row reads `defaultOpen` only when it mounts. The top row takes a new key once
+              // its explanation exists, so a deploy that finishes in place opens it.
+              key={opensExplained ? `${item.id}:explained` : item.id}
+              item={item}
+              members={members}
+              why={why.get(item.id)}
+              whyBy={writer}
+              done={done.has(item.id)}
+              onToggleDone={() => onToggleDone(item.id)}
+              defaultOpen={opensExplained}
+            />
+          );
+        })}
       </ul>
       <TotalsFooter totals={plan.totals} />
     </Card>

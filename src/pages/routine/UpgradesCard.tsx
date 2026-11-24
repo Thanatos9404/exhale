@@ -1,3 +1,7 @@
+/**
+ * Paid or effortful actions on the Routine page. They are listed apart from the free checklist
+ * so that their impact is never counted in today's totals.
+ */
 import { Card, CardHeader } from '@/components/ui/primitives';
 import { RoutineRow } from '@/components/routine';
 import type { Member } from '@/lib/profile/schema';

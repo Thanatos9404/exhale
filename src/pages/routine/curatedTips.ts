@@ -1,3 +1,7 @@
+/**
+ * Hand-written indoor tips and sustainable swaps for when no AI wording is available. They are
+ * general and conservative on purpose, because nothing here is tailored to the household.
+ */
 import type { AiTip } from '@/lib/apiTypes';
 
 /** Curated, conservative indoor tips shown when no AI explanation is available. */
