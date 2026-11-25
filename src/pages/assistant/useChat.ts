@@ -1,23 +1,16 @@
 /**
  * Conversation state for the assistant: the history, the answer being streamed (applied once
- * per animation frame) and the controls. The draft is not here; the composer owns it.
+ * per animation frame) and the controls. The draft is not here; the composer owns it. Answers
+ * come from the server, or from the hybrid Firebase model when private answers are on.
  */
 import { useCallback, useRef, useState } from 'react';
 import { notify } from '@/components/shell/toasts';
-import { streamChat } from '@/lib/api';
 import type { ChatMessage } from '@/lib/apiTypes';
 import type { Place } from '@/lib/air/types';
 import type { Household } from '@/lib/profile/schema';
 import { KEYS, readStored, removeStored, writeStored } from '@/lib/storage';
-import {
-  EMPTY_ANSWER,
-  MAX_CHARS,
-  STORED_MESSAGES,
-  contextMessages,
-  isAbortError,
-  parseChat,
-  type DraftReset,
-} from './chat';
+import { MAX_CHARS, STORED_MESSAGES, isAbortError, parseChat, type DraftReset } from './chat';
+import { answerQuestion, readyText, replyFrom, type PrivateRoute } from './answer';
 import { frameBatch } from './frameBatch';
 
 /** What every question is sent with. */
@@ -46,8 +39,14 @@ export interface Chat {
   clear: () => void;
 }
 
-/** Conversation state for the assistant: history, streaming answer and its controls. */
-export function useChat({ place, household }: ChatContext): Chat {
+/**
+ * Conversation state for the assistant: history, streaming answer and its controls. With a
+ * private route, questions go to the hybrid Firebase model instead of the server.
+ */
+export function useChat(
+  { place, household }: ChatContext,
+  route: PrivateRoute | null = null,
+): Chat {
   const [messages, setMessages] = useState<ChatMessage[]>(
     () => readStored(KEYS.chat, parseChat) ?? [],
   );
@@ -72,15 +71,12 @@ export function useChat({ place, household }: ChatContext): Chat {
       // Chunks can arrive many times a frame; only the latest text is worth rendering.
       const chunks = frameBatch<string>(setStreaming);
       try {
-        const { text: answer } = await streamChat(
-          { place, household, messages: contextMessages(history), search: useSearch },
-          chunks.push,
-          ctrl.signal,
-        );
-        const next: ChatMessage[] = [...history, { role: 'model', text: answer || EMPTY_ANSWER }];
+        const question = { text: q, history, place, household, search: useSearch };
+        const answer = await answerQuestion(question, route, chunks.push, ctrl.signal);
+        const next: ChatMessage[] = [...history, replyFrom(answer)];
         setMessages(next);
         writeStored(KEYS.chat, next.slice(-STORED_MESSAGES));
-        setAnnounce('Answer ready');
+        setAnnounce(readyText(answer.engine));
       } catch (err) {
         if (isAbortError(err)) {
           setAnnounce('Stopped');
@@ -95,7 +91,7 @@ export function useChat({ place, household }: ChatContext): Chat {
         abortRef.current = null;
       }
     },
-    [messages, streaming, place, household, search],
+    [messages, streaming, place, household, search, route],
   );
 
   const stop = useCallback(() => abortRef.current?.abort(), []);

@@ -20,7 +20,7 @@ const BUDGET = {
 };
 
 /** Heavy libraries that must stay out of the first load and arrive only when a view needs them. */
-const LAZY_ONLY = ['three', 'gsap', 'markdown', 'motion', 'ui'];
+const LAZY_ONLY = ['three', 'gsap', 'markdown', 'motion', 'ui', 'firebase'];
 const ROUTES = ['Overview', 'Forecast', 'Routine', 'Impact', 'Indoor', 'Assistant', 'Settings'];
 
 const gzipKb = (file) => gzipSync(readFileSync(join(ASSETS, file))).length / KB;

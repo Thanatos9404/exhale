@@ -21,7 +21,14 @@ const MAX_STORED_TEXT_CHARS = 32_000;
 export const EMPTY_ANSWER = 'No answer came back. Please try again.';
 
 const storedChatSchema = z
-  .array(z.object({ role: z.enum(['user', 'model']), text: z.string().max(MAX_STORED_TEXT_CHARS) }))
+  .array(
+    z.object({
+      role: z.enum(['user', 'model']),
+      text: z.string().max(MAX_STORED_TEXT_CHARS),
+      // Which engine wrote a private answer, kept so its badge survives a reload.
+      engine: z.enum(['on-device', 'cloud']).optional(),
+    }),
+  )
   .max(STORED_MESSAGES);
 
 /** Validates a stored conversation; null when it is missing, stale or tampered with. */
@@ -61,12 +68,15 @@ export function httpsUrl(href: string | undefined): string | null {
 
 /**
  * The turns sent as context with a question: the most recent ones, each clipped to the length
- * the server accepts for its role. Only the request is clipped; the conversation on screen and
- * in storage keeps every answer whole.
+ * the server accepts for its role, with only their role and text (the engine badge stays in the
+ * browser). Only the request is clipped; the conversation on screen and in storage keeps every
+ * answer whole.
  */
 export function contextMessages(history: readonly ChatMessage[]): ChatMessage[] {
   return history.slice(-CONTEXT_MESSAGES).map((turn) => {
     const limit = turn.role === 'model' ? MAX_MODEL_TURN_CHARS : MAX_CHARS;
-    return turn.text.length > limit ? { ...turn, text: turn.text.slice(0, limit) } : turn;
+    // A turn that needs no change is sent as it is; any other is rebuilt from role and text.
+    if (turn.engine === undefined && turn.text.length <= limit) return turn;
+    return { role: turn.role, text: turn.text.slice(0, limit) };
   });
 }

@@ -13,6 +13,8 @@ const SERVER_ENV_KEYS = ['GEMINI_API_KEY', 'GEMINI_API_KEYS', 'GEMINI_MODEL', 'A
  * matching row wins, so the specific libraries come before the general React row.
  */
 const VENDOR_CHUNKS: [name: string, packages: RegExp][] = [
+  // Firebase (app, App Check, AI Logic) loads only when private on-device answers are used.
+  ['firebase', /[\\/](firebase|@firebase|idb)[\\/]/],
   ['three', /[\\/](three|@react-three|three-stdlib|camera-controls|maath)[\\/]/],
   [
     'markdown',
@@ -44,6 +46,25 @@ function loadServerEnv(mode: string): void {
   }
 }
 
+/**
+ * Tests never see a Firebase project, even when .env.local configures one: with these empty, the
+ * private on-device feature is hidden and nothing tries to reach Firebase. Tests that cover it
+ * mock the Firebase SDK and pass their own settings.
+ */
+const NO_FIREBASE = Object.fromEntries(
+  [
+    'API_KEY',
+    'PROJECT_ID',
+    'APP_ID',
+    'AUTH_DOMAIN',
+    'MESSAGING_SENDER_ID',
+    'APPCHECK_SITE_KEY',
+    'APPCHECK_PROVIDER',
+    'APPCHECK_DEBUG_TOKEN',
+    'AI_CLOUD_MODEL',
+  ].map((name) => [`VITE_FIREBASE_${name}`, '']),
+);
+
 const TEST_FILES = [
   'src/**/*.test.{ts,tsx}',
   'server/**/*.test.ts',
@@ -71,16 +92,18 @@ export default defineConfig(({ mode }) => {
       globals: true,
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],
+      env: NO_FIREBASE,
       include: TEST_FILES,
       css: false,
       // Page tests render the full app; leave headroom for slow or busy CI machines.
       testTimeout: 20_000,
       coverage: {
         provider: 'v8',
-        include: ['src/lib/**', 'server/**', 'api/**'],
+        include: ['src/lib/**', 'src/services/**', 'server/**', 'api/**'],
         exclude: ['**/*.test.ts', '**/*.d.ts'],
         reporter: ['text', 'html'],
-        // The engine, server and API carry the logic; CI fails if their coverage slips.
+        // The engine, the Firebase client, the server and the API carry the logic; CI fails if
+        // their coverage slips.
         thresholds: { statements: 90, branches: 85, functions: 90, lines: 90 },
       },
     },

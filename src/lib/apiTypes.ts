@@ -64,8 +64,19 @@ export const healthResponseSchema: z.ZodType<HealthResponse> = z.object({
 /** The JSON body of a failed request: `{ error: "message safe to show" }`. */
 export const errorBodySchema = z.object({ error: z.string().min(1) });
 
+/**
+ * Where a browser-side hybrid answer was computed: Gemini Nano inside this browser, or cloud
+ * Gemini through Firebase AI Logic when the on-device model is not available.
+ */
+export type AiEngine = 'on-device' | 'cloud';
+
 /** One chat turn. 'model' is the assistant, following the Gemini role names. */
 export interface ChatMessage {
   role: 'user' | 'model';
   text: string;
+  /**
+   * Browser only: set on an answer written by the hybrid Firebase model, so the conversation can
+   * show where it ran. Never sent to the server.
+   */
+  engine?: AiEngine;
 }

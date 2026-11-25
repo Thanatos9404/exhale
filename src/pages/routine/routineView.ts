@@ -1,11 +1,14 @@
 /**
  * View logic for the Routine page, kept free of JSX so it can be unit tested: which plan is on
  * screen (the deployed one, else the local one), how it splits into free actions and upgrades,
- * and the wording for deployment status and providers.
+ * the wording for deployment status and providers, and how private on-device explanations
+ * (Gemini Nano through Firebase AI Logic) replace the server's on screen.
  */
-import type { AiPlan } from '@/lib/apiTypes';
+import type { AiEngine, AiPlan } from '@/lib/apiTypes';
 import type { PlanResult, RoutineItem } from '@/lib/planner/engine';
 import type { Deployment, LogLine, useDeployments } from '@/state/Deployments';
+import type { PrivateAiChoice } from '@/state/privateAiChoice';
+import type { PrivateExplainState } from './usePrivateExplanations';
 
 /** Lifecycle of the current deployment run. */
 export type DeployStatus = ReturnType<typeof useDeployments>['status'];
@@ -22,10 +25,15 @@ export interface RoutineView {
   upgrades: RoutineItem[];
 }
 
+/** The plan on screen: the deployed one when there is one, else the one computed here. */
+export function shownPlan(localPlan: PlanResult, latest: Deployment | null): PlanResult {
+  return latest?.response.plan ?? localPlan;
+}
+
 /** Picks the plan to show and splits it into free actions and paid upgrades. */
 export function routineView(localPlan: PlanResult, latest: Deployment | null): RoutineView {
   const deployed = latest?.response;
-  const plan = deployed?.plan ?? localPlan;
+  const plan = shownPlan(localPlan, latest);
   const ai = deployed?.ai ?? null;
   return {
     plan,
@@ -91,3 +99,39 @@ export const LOG_TEXT_CLASS: Record<LogLine['kind'], string> = {
   error: 'text-red',
   ai: 'text-blue',
 };
+
+/** Who wrote a private explanation, as the routine rows credit it. */
+export const ENGINE_WRITER: Record<AiEngine, string> = {
+  'on-device': 'Gemini Nano, on this device',
+  cloud: 'Gemini via Firebase',
+};
+
+/**
+ * The view with private explanations in place of the server's once they are ready. Only the
+ * wording changes: every number on screen still comes from the engine's plan.
+ */
+export function withPrivateExplanations(
+  view: RoutineView,
+  state: PrivateExplainState,
+): RoutineView {
+  if (state.status !== 'ready') return view;
+  return { ...view, why: state.why, writer: ENGINE_WRITER[state.engine] };
+}
+
+/** The live status line under the private-explanations switch. */
+export function privateStatusText(choice: PrivateAiChoice, state: PrivateExplainState): string {
+  if (!choice.enabled) return 'Off. Explanations come from the server when you deploy.';
+  if (choice.preparing !== null)
+    return `Getting Gemini Nano ready on this device: ${Math.round(choice.preparing * 100)}%.`;
+  switch (state.status) {
+    case 'off':
+    case 'working':
+      return 'Writing your explanations privately…';
+    case 'error':
+      return `Private explanations failed (${state.message}). The usual explanations are shown.`;
+    case 'ready':
+      return state.engine === 'on-device'
+        ? 'Explained by Gemini Nano on this device. Your household details did not leave it.'
+        : 'Gemini Nano is not available in this browser, so Firebase explained the plan with cloud Gemini.';
+  }
+}

@@ -7,7 +7,7 @@ Thanks for helping. This guide covers the workflow and the standards every chang
 ```bash
 nvm use            # Node 22, from .nvmrc
 npm ci
-cp .env.example .env.local   # keys are optional; the app runs without them
+cp .env.example .env.local   # keys and the Firebase config are optional; the app runs without them
 npm run dev
 ```
 
@@ -19,19 +19,19 @@ Run the local gate first. CI runs the same four steps and then the rest of the t
 npm run check   # Prettier, tsc, ESLint (zero warnings), Vitest with coverage thresholds
 ```
 
-| Gate               | Command                                                         | What fails it                                                                                                                                                                         |
-| ------------------ | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Format             | `npm run format:check`                                          | Any file Prettier would change                                                                                                                                                        |
-| Types              | `npm run typecheck`                                             | A type error in either TypeScript project                                                                                                                                             |
-| Lint               | `npm run lint`                                                  | Any ESLint error or warning                                                                                                                                                           |
-| Tests and coverage | `npm run test:coverage`                                         | A failing test, or coverage of `src/lib`, `server` and `api` below 90% statements, 85% branches, 90% functions or 90% lines                                                           |
-| Architecture tests | `npx vitest run tests/architecture.test.ts`                     | An import that crosses a layer the wrong way                                                                                                                                          |
-| Convention tests   | `npx vitest run tests/conventions.test.ts`                      | A secret, a console call outside the logger, an `any`, a silenced rule, a module without a header comment or over 250 lines, a weakened security header                               |
-| Contrast test      | `npx vitest run tests/contrast.test.ts`                         | A colour token pair below 4.5:1 for text or 3:1 for control boundaries, in either theme                                                                                               |
-| Docs tests         | `npx vitest run tests/docs.test.ts tests/workedExample.test.ts` | A broken link in a Markdown file, or a number in a document that no longer matches the code                                                                                           |
-| Bundle budget      | `npm run build && npm run bundle:check`                         | First-load JavaScript over 170 kB gzip, the stylesheet over 15 kB, a route chunk over 25 kB, or a lazy-only chunk (`three`, `gsap`, `markdown`, `motion`, `ui`) loaded on first paint |
-| Dependency audit   | `npm run audit:deps`                                            | A high or critical advisory in a dependency                                                                                                                                           |
-| End-to-end suite   | `npm run test:e2e`                                              | A failing Playwright journey, in Chrome at a desktop and a phone size. The network is mocked. Needs Google Chrome installed                                                           |
+| Gate               | Command                                                         | What fails it                                                                                                                                                                                     |
+| ------------------ | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Format             | `npm run format:check`                                          | Any file Prettier would change                                                                                                                                                                    |
+| Types              | `npm run typecheck`                                             | A type error in either TypeScript project                                                                                                                                                         |
+| Lint               | `npm run lint`                                                  | Any ESLint error or warning                                                                                                                                                                       |
+| Tests and coverage | `npm run test:coverage`                                         | A failing test, or coverage of `src/lib`, `server` and `api` below 90% statements, 85% branches, 90% functions or 90% lines                                                                       |
+| Architecture tests | `npx vitest run tests/architecture.test.ts`                     | An import that crosses a layer the wrong way                                                                                                                                                      |
+| Convention tests   | `npx vitest run tests/conventions.test.ts`                      | A secret, a console call outside the logger, an `any`, a silenced rule, a module without a header comment or over 250 lines, a weakened security header                                           |
+| Contrast test      | `npx vitest run tests/contrast.test.ts`                         | A colour token pair below 4.5:1 for text or 3:1 for control boundaries, in either theme                                                                                                           |
+| Docs tests         | `npx vitest run tests/docs.test.ts tests/workedExample.test.ts` | A broken link in a Markdown file, or a number in a document that no longer matches the code                                                                                                       |
+| Bundle budget      | `npm run build && npm run bundle:check`                         | First-load JavaScript over 170 kB gzip, the stylesheet over 15 kB, a route chunk over 25 kB, or a lazy-only chunk (`three`, `gsap`, `markdown`, `motion`, `ui`, `firebase`) loaded on first paint |
+| Dependency audit   | `npm run audit:deps`                                            | A high or critical advisory in a dependency                                                                                                                                                       |
+| End-to-end suite   | `npm run test:e2e`                                              | A failing Playwright journey, in Chrome at a desktop and a phone size. The network is mocked. Needs Google Chrome installed                                                                       |
 
 The four test rows in the middle are part of `npm run test:coverage`, so `npm run check` already runs them. The last three rows run only when you run them, and in CI.
 

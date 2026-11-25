@@ -110,11 +110,14 @@ export function Switch({
   onChange,
   label,
   id,
+  describedBy,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   label: string;
   id?: string;
+  /** Id of a visible note that explains what the switch does. */
+  describedBy?: string;
 }) {
   return (
     <button
@@ -123,6 +126,7 @@ export function Switch({
       role="switch"
       aria-checked={checked}
       aria-label={label}
+      aria-describedby={describedBy}
       onClick={() => onChange(!checked)}
       className={cn(
         'relative inline-flex h-6 w-10 shrink-0 items-center rounded-full border border-transparent transition-colors duration-150',

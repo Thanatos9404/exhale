@@ -151,6 +151,21 @@ describe('contextMessages', () => {
     expect(a).toEqual(model('a'.repeat(MAX_MODEL_TURN_CHARS)));
   });
 
+  it('never sends the engine badge of a private answer to the server', () => {
+    const history: ChatMessage[] = [
+      user('hi'),
+      { role: 'model', text: 'Private.', engine: 'on-device' },
+    ];
+    expect(contextMessages(history)).toEqual([user('hi'), model('Private.')]);
+    expect(contextMessages(history)[1]).not.toHaveProperty('engine');
+  });
+
+  it('keeps the engine of a stored private answer', () => {
+    const stored = [user('hi'), { role: 'model', text: 'Cloud.', engine: 'cloud' }];
+    expect(parseChat(stored)).toEqual(stored);
+    expect(parseChat([{ role: 'model', text: 'x', engine: 'mars' }])).toBeNull();
+  });
+
   it('leaves a turn exactly at its limit untouched', () => {
     const history = [user('q'.repeat(MAX_CHARS)), model('a'.repeat(MAX_MODEL_TURN_CHARS))];
     expect(contextMessages(history)).toEqual(history);

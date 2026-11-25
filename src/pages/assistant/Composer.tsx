@@ -1,9 +1,11 @@
 /**
  * The question box. It owns the draft, so typing re-renders the composer alone and never the
- * conversation above it.
+ * conversation above it. When Firebase is configured it also carries the private-answers switch;
+ * private answers cannot search the web, so the web-search switch steps aside while it is on.
  */
 import { useState, type KeyboardEvent, type SubmitEvent } from 'react';
 import { ArrowUp, Globe, Square } from 'lucide-react';
+import { PRIVACY_NOTE, PrivateAiToggle } from '@/components/PrivateAi';
 import { Button } from '@/components/ui/Button';
 import { Switch } from '@/components/ui/primitives';
 import { MAX_CHARS, type DraftReset } from './chat';
@@ -20,7 +22,11 @@ interface ComposerProps {
   busy: boolean;
   onSend: (text: string) => void;
   onStop: () => void;
+  /** The private-answers switch; absent when Firebase is not configured. */
+  privateMode?: { enabled: boolean; onChange: (on: boolean) => void } | undefined;
 }
+
+const PRIVATE_NOTE_ID = 'private-ask-note';
 
 /** The web-search switch with its visible label. */
 function SearchToggle({ search, onChange }: { search: boolean; onChange: (on: boolean) => void }) {
@@ -36,6 +42,29 @@ function SearchToggle({ search, onChange }: { search: boolean; onChange: (on: bo
         <Globe size={13} aria-hidden="true" /> Web search
       </label>
     </div>
+  );
+}
+
+/** The private-answers switch when Firebase is configured, and web search unless it is on. */
+function Switches({
+  search,
+  onSearchChange,
+  privateMode,
+}: Pick<ComposerProps, 'search' | 'onSearchChange' | 'privateMode'>) {
+  return (
+    <>
+      {privateMode && (
+        <PrivateAiToggle
+          compact
+          id="private-ask"
+          noteId={PRIVATE_NOTE_ID}
+          label="Answer on this device (Gemini Nano)"
+          checked={privateMode.enabled}
+          onChange={privateMode.onChange}
+        />
+      )}
+      {!privateMode?.enabled && <SearchToggle search={search} onChange={onSearchChange} />}
+    </>
   );
 }
 
@@ -87,7 +116,15 @@ function useDraft(reset: DraftReset) {
 }
 
 /** The question box: Enter sends, Shift+Enter adds a line, with the web-search toggle and Stop. */
-export function Composer({ reset, search, onSearchChange, busy, onSend, onStop }: ComposerProps) {
+export function Composer({
+  reset,
+  search,
+  onSearchChange,
+  busy,
+  onSend,
+  onStop,
+  privateMode,
+}: ComposerProps) {
   const [draft, setDraft] = useDraft(reset);
   const onSubmit = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -116,14 +153,19 @@ export function Composer({ reset, search, onSearchChange, busy, onSend, onStop }
           placeholder="When should we open the windows today?"
           className="block max-h-40 min-h-[56px] w-full resize-y bg-transparent px-3 pt-3 text-sm text-fg outline-none placeholder:text-subtle"
         />
-        <div className="flex items-center gap-3 px-2 pb-2">
-          <SearchToggle search={search} onChange={onSearchChange} />
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2 pb-2">
+          <Switches search={search} onSearchChange={onSearchChange} privateMode={privateMode} />
           <span className="tabular ml-auto text-xs text-subtle">
             {draft.length > MAX_CHARS * COUNTER_FROM ? `${draft.length}/${MAX_CHARS}` : ''}
           </span>
           <SendOrStop busy={busy} empty={!draft.trim()} onStop={onStop} />
         </div>
       </div>
+      {privateMode && (
+        <p id={PRIVATE_NOTE_ID} className="mt-2 px-1 text-[11px] text-subtle">
+          {PRIVACY_NOTE}
+        </p>
+      )}
       <p className="mt-2 px-1 text-[11px] text-subtle">
         General guidance, not medical advice. For trouble breathing, seek care now.
       </p>

@@ -4,7 +4,7 @@
 
 - **Live app:** https://exhale-air.vercel.app
 - **Challenge:** PromptWars Virtual, Challenge 6: _Urban Air Quality Assistant_ (Hack2skill × Google for Developers)
-- **Built with:** Gemini API (structured output, streaming, Google Search grounding), React 19, TypeScript, Vite, three.js / React Three Fiber, Motion, GSAP, Vercel Functions
+- **Built with:** Gemini API (structured output, streaming, Google Search grounding), Firebase AI Logic (hybrid on-device Gemini Nano) with App Check, React 19, TypeScript, Vite, three.js / React Three Fiber, Motion, GSAP, Vercel Functions
 
 ![Exhale overview: live 3D air column, AQI and the re-planned routine](docs/overview.png)
 
@@ -18,7 +18,7 @@ Each judging criterion has its own evidence document. Every claim in them links 
 | --------------------------- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | --------------------------------------------------------------- |
 | Code Quality                | Strict type-checked lint with size and complexity limits, layer boundaries and conventions enforced by tests  | [CODE_QUALITY.md](CODE_QUALITY.md)           | `npm run lint`, `npx vitest run tests`                          |
 | Security                    | Same-origin API, validated input, prompt-injection tags, bounded AI cost, strict headers, pinned supply chain | [SECURITY.md](SECURITY.md)                   | `npm run audit:deps`, `npm test`                                |
-| Efficiency                  | 138.6 kB first-load JavaScript against a 170 kB budget, about 2 ms per plan, cached AI                        | [EFFICIENCY.md](EFFICIENCY.md)               | `npm run build && npm run bundle:check`                         |
+| Efficiency                  | 138.8 kB first-load JavaScript against a 170 kB budget, about 2 ms per plan, cached AI                        | [EFFICIENCY.md](EFFICIENCY.md)               | `npm run build && npm run bundle:check`                         |
 | Testing                     | Unit, property-based, API, UI, accessibility, end-to-end, architecture and documentation tests, all hermetic  | [TESTING.md](TESTING.md)                     | `npm run check`, `npm run test:e2e`                             |
 | Accessibility               | WCAG 2.2 AA criteria mapped to code and tests; axe in jsdom and real Chrome; computed contrast                | [ACCESSIBILITY.md](ACCESSIBILITY.md)         | `npx vitest run src/pages/a11y.test.tsx tests/contrast.test.ts` |
 | Problem Statement Alignment | Every phrase of the brief traced to a feature, a file and a test, for families and their communities          | [PROBLEM_ALIGNMENT.md](PROBLEM_ALIGNMENT.md) | `npx vitest run tests/workedExample.test.ts`                    |
@@ -139,16 +139,26 @@ flowchart LR
 
 Without any key the app still works end to end: plans use the engine's own explanations and chat answers come from an offline responder built on the plan. The order is always Gemini, then Claude Haiku (if configured), then the rules engine.
 
+## Hybrid on-device AI (Firebase)
+
+On the Routine page, a switch labelled "Explain on this device (Gemini Nano)" moves the plan's personal explanations into the browser; in the Assistant, "Answer on this device (Gemini Nano)" does the same for short questions about today's plan. Both are answered by Gemini Nano inside Chrome through **Firebase AI Logic** in hybrid mode (`InferenceMode.PREFER_ON_DEVICE`). When Gemini Nano is not available, Firebase AI Logic falls back to cloud Gemini on its own, protected by **Firebase App Check** (reCAPTCHA Enterprise, with the debug provider in development). Every answer carries a badge, **On-device** or **Cloud (Firebase)**, read from the SDK's `inferenceSource`.
+
+- **Health data stays on the device.** The household's conditions, ages and schedules go into a prompt that is built and answered in the browser.
+- **Same guardrails as the server.** The prompt code moved to [src/lib/prompts](src/lib/prompts/guardrails.ts) and is shared by the server and the browser: tagged data blocks, neutralised user text and the same rules. Explanations are validated with the server's zod schema, and the numbers still come only from the engine.
+- **Invisible without configuration.** Without the `VITE_FIREBASE_*` variables the switch is not rendered and no Firebase code is downloaded. With them, the SDK is a separate lazy chunk that loads only when the feature is used.
+
+Code: [src/services/firebase/](src/services/firebase/client.ts). Set-up, console steps and what was built for #BuildHybridAI: [docs/HYBRID_AI.md](docs/HYBRID_AI.md).
+
 ## Security
 
 Summary of [SECURITY.md](SECURITY.md), which maps every threat to the file that handles it and the test that proves it.
 
-- **Keys stay on the server.** API keys live only in server environment variables, and a convention test proves no browser module reads one. Logs mask anything shaped like a key.
+- **Keys stay on the server.** API keys live only in server environment variables, and a convention test proves that the only browser module reading the environment is the Firebase config, which reads only the public `VITE_FIREBASE_*` web config. Logs mask anything shaped like a key.
 - **Same-origin API.** Cross-site POSTs are refused with 403 by `Origin` and `Sec-Fetch-Site` checks, and the content type must be exactly `application/json`.
 - **Validated input.** Bodies are streamed with a byte cap and parsed with zod. Names and labels allow letters in any script, digits and address punctuation.
 - **Prompt-injection hardening.** Every user-typed string is neutralised and wrapped in a named data tag (`place`, `name`, `item`, `household`, `history`, `user`). Replayed chat history is sent as unverified data. Model output is schema-validated and can never change a number.
 - **Bounded cost.** Per-client rate limits, a tighter limit for web-grounded questions, per-instance call budgets for Gemini and Claude, and one 50 second deadline per request that always ends in an answer.
-- **Strict headers**, checked by value in a test: CSP with `script-src 'self'`, HSTS, `X-Frame-Options: DENY`, `nosniff`, Referrer-Policy, Permissions-Policy, COOP and CORP.
+- **Strict headers**, checked by value in a test: CSP with `script-src 'self'` plus only the reCAPTCHA paths App Check needs, HSTS, `X-Frame-Options: DENY`, `nosniff`, Referrer-Policy, Permissions-Policy, COOP and CORP.
 - **Supply chain.** `npm audit` gate in CI, CodeQL, dependency review, Dependabot, and every GitHub Action pinned to a commit SHA.
 
 ## Testing
@@ -167,6 +177,21 @@ Summary of [TESTING.md](TESTING.md). The whole suite is hermetic: no network, no
 | Budgets                            | Vitest and a build script            | [tests/performance.test.ts](tests/performance.test.ts), [scripts/check-bundle.mjs](scripts/check-bundle.mjs)                                                                                       |
 
 CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs the dependency audit, Prettier, `tsc`, strict ESLint, Vitest with coverage thresholds, the production build, the bundle budget and the Playwright suite on every push.
+
+### Reproduce the evaluation
+
+Every check below runs offline, with no API key. Property tests pick a new random seed on every run; when one fails, fast-check prints the seed and path so the case replays exactly.
+
+```sh
+npm install
+npx vitest run src/lib/planner/engine.property.test.ts   # safety: the plan never raises any member's dose; determinism
+npx vitest run tests/workedExample.test.ts               # effect size on the fixed winter fixture (3,545 to 2,334 µg, 34%)
+npx vitest run src/lib/air src/lib/science               # AQI tables, exposure and indoor model against published references
+npx vitest run tests/performance.test.ts                 # planner speed budget
+npm run check                                            # everything: format, types, lint, all tests with coverage
+```
+
+The reference day in `src/test/fixtures.ts` is synthetic (a Delhi-like winter inversion), not a measured day, and the doses are model estimates, not personal-monitor measurements.
 
 ## Code quality
 
@@ -194,7 +219,7 @@ Summary of [ACCESSIBILITY.md](ACCESSIBILITY.md), which maps WCAG 2.2 AA success 
 
 Summary of [EFFICIENCY.md](EFFICIENCY.md). Budgets fail the build in CI.
 
-- **138.6 kB gzip of JavaScript for first paint**, against a 170 kB budget. three.js, the animation library, the command menu, GSAP and the Markdown renderer are all kept out of the first load, and the build fails if one slips in.
+- **138.8 kB gzip of JavaScript for first paint**, against a 170 kB budget. three.js, the animation library, the command menu, GSAP, the Markdown renderer and the Firebase SDK are all kept out of the first load, and the build fails if one slips in.
 - **The 3D scene waits its turn:** a lightweight poster first, three.js only once it is on screen and the browser is idle, and never automatically on a data-saver connection.
 - **About 2 ms per plan,** so what-if toggles recompute the whole day instantly. A performance test holds the budget.
 - **Fetch once:** air data cached per ~1 km cell in the browser and on the server, failures remembered briefly, and validated AI explanations cached for 10 minutes so identical prompts are not paid for twice.
@@ -205,7 +230,7 @@ Summary of [EFFICIENCY.md](EFFICIENCY.md). Budgets fail the build in CI.
 
 ```bash
 npm install
-cp .env.example .env.local   # add GEMINI_API_KEY (optional)
+cp .env.example .env.local   # add GEMINI_API_KEY and VITE_FIREBASE_* (both optional)
 npm run dev                  # app and /api on http://localhost:5173
 npm run check                # format, typecheck, lint, tests with coverage
 npm run test:e2e             # Playwright journeys in Chrome, desktop and phone
@@ -225,15 +250,18 @@ src/lib/planner/      Scenario, simulator, totals, summary
 src/lib/planner/actions/  One builder per kind of recommendation, run from a registry
 src/components/       UI kit, shell (header, tabs, command menu), charts, 3D scenes, diagrams
 src/pages/            One entry per page, composed from src/pages/<page>/ components and hooks
-src/state/            Household, place, theme and deployments (local, validated storage)
+src/state/            Household, place, theme, deployments and the private-answers choice (local, validated storage)
+src/services/firebase/  Firebase app, App Check, hybrid Gemini Nano models and the typed client (lazy-loaded)
+src/lib/prompts/      Prompt guardrails and CONTEXT shared by the server and the on-device path
 docs/ARCHITECTURE.md  Layers, data flow, planner pipeline, AI fallback chain
+docs/HYBRID_AI.md     Hybrid on-device AI with Firebase: what was built, why, and how to enable it
 ```
 
 ## Credits
 
 Air quality and weather data: [Open-Meteo](https://open-meteo.com) (CAMS, ECMWF and national weather models, CC BY 4.0). Reverse geocoding: BigDataCloud client API. Fonts: Geist and Geist Mono (SIL OFL). Icons: Lucide (ISC).
 
-**AI tools.** At runtime: the Gemini API (plan explanations and the assistant) and Claude Haiku (fallback only). In development: the code, tests and docs were written with Claude Code (Anthropic) as an AI coding assistant, and every commit is marked as co-authored with it.
+**AI tools.** At runtime: the Gemini API (plan explanations and the assistant), Claude Haiku (fallback only) and, when configured, Firebase AI Logic (Gemini Nano on the device, cloud Gemini as its fallback). In development: the code, tests and docs were written with Claude Code (Anthropic) as an AI coding assistant, and every commit is marked as co-authored with it.
 
 ## License
 

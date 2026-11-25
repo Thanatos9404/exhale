@@ -1,9 +1,11 @@
 /**
  * The Routine page: deploys today's plan, shows its build, and lists the actions for the
- * household and the bulletin for the neighbourhood.
+ * household and the bulletin for the neighbourhood. When Firebase is configured, the actions can
+ * be explained privately by Gemini Nano on this device instead.
  */
 import { ErrorCard, LoadingCard } from '@/components/states';
 import { useLocalPlan } from '@/hooks/useAir';
+import { usePrivateAi } from '@/hooks/usePrivateAi';
 import { useAppState } from '@/state/AppState';
 import { useDeployments } from '@/state/Deployments';
 import { AiSummaryCard } from './routine/AiSummaryCard';
@@ -12,16 +14,22 @@ import { DeployBanner } from './routine/DeployBanner';
 import { DeploymentCard } from './routine/DeploymentCard';
 import { DeploymentHistory } from './routine/DeploymentHistory';
 import { FreeActionsCard } from './routine/FreeActionsCard';
+import { PrivateExplainCard } from './routine/PrivateExplainCard';
 import { RoutineActions, RoutineLayout } from './routine/RoutineLayout';
-import { routineView } from './routine/routineView';
+import { routineView, shownPlan, withPrivateExplanations } from './routine/routineView';
 import { TipsGrid } from './routine/TipsCard';
 import { UpgradesCard } from './routine/UpgradesCard';
+import { usePrivateExplanations } from './routine/usePrivateExplanations';
 
 /** Routine page: deploy today's plan, follow the build, and work through the actions. */
 export default function Routine() {
   const { household, place } = useAppState();
   const { plan: localPlan, isLoading, isError, error, refetch } = useLocalPlan();
   const { status, logs, latest, history, deploy, done, toggleDone } = useDeployments();
+  const privateAi = usePrivateAi();
+  // Hooks run before the loading and error returns, so the plan may not exist yet.
+  const onScreen = localPlan ? shownPlan(localPlan, latest) : null;
+  const explained = usePrivateExplanations(onScreen, household, privateAi);
 
   if (isError)
     return (
@@ -39,7 +47,7 @@ export default function Routine() {
       </RoutineLayout>
     );
 
-  const view = routineView(localPlan, latest);
+  const view = withPrivateExplanations(routineView(localPlan, latest), explained);
   const building = status === 'building';
   const deployed = latest !== null;
 
@@ -60,6 +68,7 @@ export default function Routine() {
       ) : (
         <DeployBanner building={building} deployed={deployed} />
       )}
+      <PrivateExplainCard controls={privateAi} state={explained} />
       <FreeActionsCard
         view={view}
         members={household.members}

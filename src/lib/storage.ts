@@ -40,4 +40,6 @@ export const KEYS = {
   deployments: 'exhale.deployments.v1',
   chat: 'exhale.chat.v1',
   done: 'exhale.done.v1',
+  /** Whether answers about the plan are written privately (Gemini Nano through Firebase). */
+  privateAi: 'exhale.privateAi.v1',
 } as const;

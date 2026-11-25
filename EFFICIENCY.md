@@ -8,10 +8,10 @@ How Exhale keeps the first load small, the planner instant and the AI bill low. 
 
 | What                                                              | Measured (gzip)    | Budget |
 | ----------------------------------------------------------------- | ------------------ | ------ |
-| JavaScript needed for first paint                                 | 138.6 kB           | 170 kB |
+| JavaScript needed for first paint                                 | 138.8 kB           | 170 kB |
 | Stylesheet                                                        | 10.3 kB            | 15 kB  |
 | Largest route chunk (Forecast)                                    | 19.8 kB            | 25 kB  |
-| Other route chunks (Routine, Impact, Indoor, Assistant, Settings) | 3.0 to 9.1 kB each | 25 kB  |
+| Other route chunks (Routine, Impact, Indoor, Assistant, Settings) | 3.0 to 9.8 kB each | 25 kB  |
 
 Measured on the production build of 24 November 2026 with `npx vite build && npm run bundle:check`.
 
@@ -24,6 +24,7 @@ The same script fails the build if any of these libraries is preloaded on first 
 | Command menu and toaster (cmdk, Radix, sonner) | 25.7 kB     | When the browser is idle, or on the first Ctrl+K                     |
 | GSAP                                           | 27.8 kB     | With the inversion diagram                                           |
 | Markdown renderer                              | 35.7 kB     | With the first assistant answer                                      |
+| Firebase (app, App Check, AI Logic)            | 24.3 kB     | Only when private on-device answers are switched on                  |
 
 How the first load stays small:
 

@@ -1,10 +1,12 @@
 /**
  * One chat bubble. It is memoised, so a finished message is rendered (and its Markdown parsed)
- * once, however often the conversation around it updates.
+ * once, however often the conversation around it updates. A private answer carries a badge that
+ * says whether Gemini Nano wrote it on this device or Firebase wrote it in the cloud.
  */
 import { lazy, memo, Suspense } from 'react';
 import type { Components } from 'react-markdown';
 import { ParticleOrb } from '@/components/ParticleOrb';
+import { EngineBadge } from '@/components/PrivateAi';
 import type { ChatMessage } from '@/lib/apiTypes';
 import { httpsUrl } from './chat';
 
@@ -63,6 +65,11 @@ export const Message = memo(function Message({ message, streaming = false }: Mes
             aria-hidden="true"
             className="ml-0.5 inline-block h-4 w-1.5 translate-y-0.5 animate-[exhale-caret_1s_steps(1)_infinite] bg-fg"
           />
+        )}
+        {message.engine && (
+          <div className="mt-2">
+            <EngineBadge engine={message.engine} />
+          </div>
         )}
       </div>
     </li>

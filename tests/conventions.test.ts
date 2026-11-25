@@ -18,9 +18,22 @@ describe('conventions: security', () => {
     expect(offenders(secret, all)).toEqual([]);
   });
 
-  it('reads environment variables only on the server and in build tooling', () => {
-    const readers = offenders(/process\.env|import\.meta\.env\.(?!DEV|PROD|MODE|BASE_URL)/);
-    expect(readers.filter((path) => path.startsWith('src/'))).toEqual([]);
+  it('reads environment variables only on the server, in build tooling and in one config module', () => {
+    // Any read of the build environment beyond Vite's own flags, including the bare
+    // `import.meta.env` object. The one browser module allowed to read it is the Firebase config,
+    // and only for the public VITE_FIREBASE_* web config (see docs/HYBRID_AI.md).
+    const readers = offenders(/process\.env|import\.meta\.env(?!\.(DEV|PROD|MODE|BASE_URL)\b)/);
+    expect(readers.filter((path) => path.startsWith('src/'))).toEqual([
+      'src/services/firebase/config.ts',
+    ]);
+  });
+
+  it('reads only public VITE_FIREBASE_* values in the browser, never a server secret', () => {
+    const config = production.find((file) => file.path === 'src/services/firebase/config.ts');
+    const names = [...(config?.text ?? '').matchAll(/\b(VITE_[A-Z_]+)\b/g)].map((m) => m[1]);
+    expect(names.length).toBeGreaterThan(0);
+    expect(names.every((name) => name?.startsWith('VITE_FIREBASE_'))).toBe(true);
+    expect(config?.text).not.toMatch(/GEMINI_API_KEY|ANTHROPIC_API_KEY/);
   });
 
   it('never injects raw HTML or evaluates strings as code', () => {
@@ -122,9 +135,32 @@ describe('conventions: delivery', () => {
     expect(hsts).toContain('includeSubDomains');
   });
 
-  it('allows scripts from this origin only: no inline script, no eval', () => {
-    expect(csp.get('script-src')).toBe("'self'");
+  /**
+   * Hosts the private on-device feature needs, each from official documentation:
+   * - firebasevertexai.googleapis.com: the Firebase AI Logic endpoint the `firebase/ai` SDK calls
+   *   for the cloud fallback.
+   * - content-firebaseappcheck.googleapis.com: the App Check token exchange.
+   * - www.google.com/recaptcha/, www.gstatic.com/recaptcha/, recaptcha.google.com/recaptcha/: the
+   *   reCAPTCHA script, frame and connect sources listed in Google's reCAPTCHA FAQ, for the App
+   *   Check attestation provider.
+   */
+  const RECAPTCHA_SCRIPTS = 'https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/';
+  const FIREBASE_CONNECT = [
+    'https://firebasevertexai.googleapis.com',
+    'https://content-firebaseappcheck.googleapis.com',
+    'https://www.google.com/recaptcha/',
+  ];
+
+  it('allows scripts from this origin and reCAPTCHA only: no inline script, no eval', () => {
+    expect(csp.get('script-src')).toBe(`'self' ${RECAPTCHA_SCRIPTS}`);
+    expect(csp.get('script-src')).not.toMatch(/unsafe-inline|unsafe-eval|\*/);
     expect(csp.get('default-src')).toBe("'self'");
+  });
+
+  it('allows frames only from reCAPTCHA, for App Check attestation', () => {
+    expect(csp.get('frame-src')).toBe(
+      'https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/',
+    );
   });
 
   it('blocks framing, plugins, base-tag hijacking and foreign form targets', () => {
@@ -135,10 +171,12 @@ describe('conventions: delivery', () => {
     expect(csp.has('upgrade-insecure-requests')).toBe(true);
   });
 
-  it('lets the browser connect only to this origin and the named data APIs', () => {
+  it('lets the browser connect only to this origin, the named data APIs and Firebase', () => {
     const hosts = (csp.get('connect-src') ?? '').split(' ').filter((host) => host !== "'self'");
-    expect(hosts.every((host) => /^https:\/\/[a-z0-9.-]+$/.test(host))).toBe(true);
-    expect(hosts.every((host) => /open-meteo\.com$|bigdatacloud\.net$/.test(host))).toBe(true);
+    expect(hosts.every((host) => /^https:\/\/[a-z0-9.-]+(\/[a-z]+\/)?$/.test(host))).toBe(true);
+    const dataApis = hosts.filter((host) => !FIREBASE_CONNECT.includes(host));
+    expect(dataApis.every((host) => /open-meteo\.com$|bigdatacloud\.net$/.test(host))).toBe(true);
+    expect(hosts).toEqual(expect.arrayContaining(FIREBASE_CONNECT));
   });
 
   it('never rewrites API or asset URLs to the app shell, so a missing chunk is a real 404', () => {

@@ -19,22 +19,41 @@ const UI_PACKAGES =
   /^pkg:(react|react-dom|motion|gsap|three|@react-three|@gsap|cmdk|sonner|wouter|lucide-react)/;
 const UI_LAYERS = /^src\/(components|pages|state|hooks)\//;
 const AI_SDKS = /^pkg:(@google\/genai|@anthropic-ai\/sdk)/;
+/** The Firebase web SDK (app, App Check, AI Logic): browser-only, behind src/services/firebase. */
+const FIREBASE_SDK = /^pkg:(firebase|@firebase)(\/|$)/;
 
 const RULES: LayerRule[] = [
   {
-    name: 'src/lib is pure logic: no UI code, no UI packages, no AI SDKs',
+    name: 'src/lib is pure logic: no UI code, no UI packages, no AI SDKs, no services',
     files: /^src\/lib\//,
+    forbidden: [
+      UI_LAYERS,
+      UI_PACKAGES,
+      AI_SDKS,
+      FIREBASE_SDK,
+      /^src\/services\//,
+      /^(server|api)\//,
+    ],
+  },
+  {
+    name: 'src/services wraps browser SDKs for the UI: it uses src/lib and never the UI',
+    files: /^src\/services\//,
     forbidden: [UI_LAYERS, UI_PACKAGES, AI_SDKS, /^(server|api)\//],
   },
   {
-    name: 'server is framework-free: it uses src/lib and never the UI',
+    name: 'only src/services/firebase imports the Firebase SDK',
+    files: /^(src\/(?!services\/firebase\/)|server\/|api\/)/,
+    forbidden: [FIREBASE_SDK],
+  },
+  {
+    name: 'server is framework-free: it uses src/lib and never the UI or browser services',
     files: /^server\//,
-    forbidden: [UI_LAYERS, UI_PACKAGES, /^api\//],
+    forbidden: [UI_LAYERS, UI_PACKAGES, /^src\/services\//, /^api\//],
   },
   {
     name: 'api handlers are thin: they call server and src/lib only',
     files: /^api\//,
-    forbidden: [UI_LAYERS, UI_PACKAGES, AI_SDKS],
+    forbidden: [UI_LAYERS, UI_PACKAGES, AI_SDKS, /^src\/services\//],
   },
   {
     name: 'the browser never imports server code or AI SDKs',
@@ -84,6 +103,14 @@ describe('architecture: layer boundaries', () => {
           .map((target) => `${file.path} imports ${target}`);
       });
     expect(crossImports).toEqual([]);
+  });
+
+  it('loads the Firebase SDK only on demand, never in a static import', () => {
+    const staticImport = /^\s*import\s+(?!type\b)[^'"]*from\s+['"](firebase|@firebase)[/'"]/m;
+    const eager = production
+      .filter((file) => staticImport.test(file.text))
+      .map((file) => file.path);
+    expect(eager).toEqual([]);
   });
 
   it('has no import cycles between the layers of src/lib', () => {
