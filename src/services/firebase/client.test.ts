@@ -4,7 +4,7 @@ import { DEFAULT_HOUSEHOLD } from '@/lib/profile/schema';
 import { ASK_SYSTEM, EXPLAIN_SYSTEM } from '@/lib/prompts/onDevice';
 import { PLAN_EXPLANATIONS_JSON_SCHEMA } from '@/lib/prompts/jsonSchema';
 import { makeSnapshot } from '@/test/fixtures';
-import { createPrivateAi, engineOf } from './client';
+import { createPrivateAi, engineOf, PREPARE_WAIT_MS } from './client';
 import type { FirebaseSettings } from './config';
 
 /**
@@ -223,6 +223,23 @@ describe('prepareOnDevice', () => {
       return model;
     });
     await expect(createPrivateAi(settings).prepareOnDevice()).resolves.toBeUndefined();
+  });
+
+  it('stops waiting for a slow download, so Firebase can answer from the cloud meanwhile', async () => {
+    sdk.getGenerativeModel.mockImplementation(() => {
+      const model = sdk.makeModel();
+      model.initializeDeviceModel.mockReturnValue(new Promise<void>(() => {}));
+      sdk.models.push(model);
+      return model;
+    });
+    vi.useFakeTimers();
+    try {
+      const prepared = createPrivateAi(settings).prepareOnDevice();
+      await vi.advanceTimersByTimeAsync(PREPARE_WAIT_MS);
+      await expect(prepared).resolves.toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

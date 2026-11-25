@@ -14,6 +14,9 @@ import { startFirebase } from './app';
 import type { FirebaseSettings } from './config';
 import { createHybridModels, type HybridModels } from './model';
 
+/** How long a request waits for Gemini Nano to download before Firebase answers from the cloud. */
+export const PREPARE_WAIT_MS = 15_000;
+
 /** Validated explanations by action id, and the engine that wrote them. */
 export interface PrivateExplanations {
   why: Map<string, string>;
@@ -87,11 +90,14 @@ export function createPrivateAi(settings: FirebaseSettings): PrivateAi {
       const { explain, ask } = await load();
       // Without Gemini Nano, or without a user gesture for its download, the SDK rejects here;
       // both models then answer from the cloud, the documented PREFER_ON_DEVICE fallback.
-      await Promise.all(
+      const ready = Promise.all(
         [explain, ask].map((model) =>
           model.initializeDeviceModel(onProgress).catch(() => undefined),
         ),
       );
+      // A first download can take many minutes. Stop waiting after a while: the download
+      // carries on in the background, and until it ends Firebase answers from the cloud.
+      await Promise.race([ready, new Promise((done) => setTimeout(done, PREPARE_WAIT_MS))]);
     },
 
     async explainPlanOnDevice(plan, household, signal) {
